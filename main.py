@@ -2,29 +2,17 @@ import sys
 import hashlib
 import base64
 import json
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QFileDialog, QCheckBox, QMessageBox, QProgressBar, QTabWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-    QTableWidgetItem, QHeaderView
+    QTableWidgetItem, QHeaderView, QStyle, QMenuBar, QMenu, QSizePolicy
 )
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PySide6.QtGui import QIcon, QPixmap, QAction, QDesktopServices
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl
 from io import BytesIO
 from PIL import Image
 import os
-
-# Base64 encoded icon
-icon_base64 = """
-iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAsQAAALEBxi1JjQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAATHSURBVFiFvZd/TJR1HMdfd94PO5x2GSpO8W5OtGaSZRP17gQUaOFAR9PmH9qk3GiVbJj4T9xzpo5INmZZW2ZGbbWZiAr245I44UBTJDMnMf8AsSmWjhBRDpDrj/vBc88PPKT13p49z/P5vL/P5/398fl8vw+MDQLgH82lG6f1AamhD+jGKABnfgpCfkrUfI2lyGCOMf7Q1etLBzxaFZ4eOMLIvRnG48th1ruBexQ4vjFdb44xuoFUtREYANZNNBqqXpgZaz+xKcNk1I0b7sW2/fIW3XXwz6moBNg/rgLQ63Xa70ecgiFAE3qZORfiLHD2RzkxysAA/vYd4WeNpcigOgUTjIaqpJmx9upNGSajZS5kbYbOqw8NoLEUhS8Aoaw2/C6U1cr4SiOgn2A0VNmsU23HNqabDLMSIDsPqvYz0HZZNbDnTBueM+0AfH3Dz/o4DUJZLZ7TbeQUOAMcbzkCRCxaqQD9RKOhapl1qv2oQvDscve9IM8kF9DOoV+GwsFyCpxcAp60OXhqaTIALYCr1KUq4KHBG9pueoPcdNWhGCVCa0AfWvGVG9JkwVd/6b7nbes8e8fXn3XH178KqJR+KDnJwtrFWipKXQBUlLqY/6COW95yWho9tDR6uOUtxympGVqA2Jjxny2xTLF9l/uiyTh5SiD48U+h4w/yKr09DW2djT2+gQzARzBF5QKssoIk5KeQvMQ6zFki5+j8xZvjO3ruLp824bEYwzgtdN+Gr3bDndsAHfOemPRKd9/AeaBf1G5AKkAoq8UlWeWhTMgpcADgCnLEqahz/dx0YbxOZ5Z+sG9wsOuLc1e+ae/qcQAOifsUcEbaJqfASc5WAQhkgsy/VWB9nCbCphPczebCPLuMDEbzutnPFkqt3nNXab54feh+/+AKqa+i1EVFqSuchmJhIb8UOoDiwrThOv6QqiaU1WLqfqBtun7L3dXr84TtwU1JYymiYo8ABKqeUFbLocYATWnjGk7DSY5APY8CfmBZ/FR9dUtHmtTnzE+BB3XMDwZKTrIA7aLnSAwLiHIzsS2Kp883CEBXjNwv7WFykpXkJKucKBMgCn7tRjdv7ajhZH0rAKnL5rBnewoJ1smstM1mpW12IJhCbRejuqaVHXs9XL7yN0/PicW5JYXM1AQVAaLgi7I/J23zNkp2bwCg4XA5trUf0Hw8lxlxEyP4DU0dvP9JfYStMM9OdU0rbxad4EDJapIWzuB08zVeKzwGrCIzNSHcRgP4xXm55o0jmBauZca8Zzj4Ti4ajYZX9xzkz8sX6PvtWyo+WhPmBnO/AfASie3AueC9RmRPA3YCi4FixRH4qa6Vkl0bcb30HEf3ZTE05OflLZsoOnGe7Xt3SekAJwmcDaVYANRLbKeARJFIuYDeu/cxT5vOXzdusvT5eABuXu/EPG06PT29SgLUYCCyehJ8N4oNI56IQqX0EeCX3JX8mhEFKJXSUSkoeV3VJz5TqgqQ1uxHFVTo/pUP6y/ytn0BxekLZX61MyEQKKXiDHkU7PP+zuEjlexruKToVxQg7b2aLRrkOxLJzMwk37FA0S+bAqUej2UUdq5MZJf7LO+tSFT0jzgF/xVGWpBj/jdUg+Lf0/8oYFQLZlS/1wqXMBal/wJknuGtsItVcQAAAABJRU5ErkJggg==
-"""
-
-def get_icon_from_base64(icon_base64):
-    image_data = base64.b64decode(icon_base64)
-    image = Image.open(BytesIO(image_data))
-    bytes_io = BytesIO()
-    image.save(bytes_io, format='PNG')
-    qpixmap = QPixmap()
-    qpixmap.loadFromData(bytes_io.getvalue())
-    return QIcon(qpixmap)
+import urllib.request
+from packaging import version
 
 def calculate_checksum(file_path, algorithm='md5'):
     hash_func = getattr(hashlib, algorithm)()
@@ -37,25 +25,40 @@ def calculate_checksum(file_path, algorithm='md5'):
     return hash_func.hexdigest()
 
 class ChecksumThread(QThread):
-    finished = pyqtSignal(str, str)
+    progress = Signal(int)  # Emit percentage instead of bytes
+    finished = Signal(dict)  # Emits all hashes at once
 
-    def __init__(self, file_path, algorithm):
+    def __init__(self, file_path, algorithms):
         super().__init__()
         self.file_path = file_path
-        self.algorithm = algorithm
+        self.algorithms = algorithms
+        self.hash_funcs = {alg: getattr(hashlib, alg)() for alg in algorithms}
 
     def run(self):
         try:
-            checksum = calculate_checksum(self.file_path, self.algorithm)
-            self.finished.emit(self.algorithm, checksum)
+            file_size = os.path.getsize(self.file_path)
+            bytes_read = 0
+            
+            with open(self.file_path, 'rb') as f:
+                while chunk := f.read(128 * 1024):  # 128KB chunks
+                    for alg in self.algorithms:
+                        self.hash_funcs[alg].update(chunk)
+                    bytes_read += len(chunk)
+                    progress = int((bytes_read / file_size) * 100)
+                    self.progress.emit(progress)  # Emit percentage instead of bytes
+                    
+            results = {alg: h.hexdigest() for alg, h in self.hash_funcs.items()}
+            self.finished.emit(results)
+            
         except Exception as e:
-            self.finished.emit(self.algorithm, str(e))
+            self.finished.emit({'error': str(e)})
 
 class ChecksumApp(QWidget):
-    progress_update = pyqtSignal(int)
+    progress_update = Signal(int)
 
     def __init__(self):
         super().__init__()
+        self.current_version = "3.5"
         self.init_ui()
         self.files_data = []
         self.threads = []
@@ -68,8 +71,8 @@ class ChecksumApp(QWidget):
         self.file_path = ""
 
     def init_ui(self):
-        self.setWindowTitle("MD5 & SHA Checksum Utility v3.0")
-        self.setWindowIcon(get_icon_from_base64(icon_base64))
+        self.setWindowTitle(f"Pyhashsum v{self.current_version}")
+        self.setWindowIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogContentsView))
         self.setGeometry(400, 100, 800, 600)
 
         # Modern dark theme
@@ -150,6 +153,13 @@ class ChecksumApp(QWidget):
         # Main layout
         main_layout = QVBoxLayout()
         
+        # Main menu bar
+        menubar = QMenuBar()
+        help_menu = menubar.addMenu("Help")
+        help_menu.addAction("Check for Updates", self.check_for_updates)
+        help_menu.addAction("About", self.show_about)
+        main_layout.setMenuBar(menubar)  # Top-level menu bar
+        
         # Create tab widget
         tab_widget = QTabWidget()
         
@@ -216,18 +226,27 @@ class ChecksumApp(QWidget):
         folder_tab = QWidget()
         folder_layout = QVBoxLayout()
         
-        # Folder selection
+        # Folder header layout
         folder_header = QHBoxLayout()
         folder_label = QLabel("Folder:")
         self.folder_entry = QLineEdit()
+        
+        # Button container
+        button_container = QHBoxLayout()
         self.browse_folder_button = QPushButton("Browse Folder")
         self.browse_folder_button.clicked.connect(self.open_folder)
         
+        # Add buttons to container
+        button_container.addWidget(self.browse_folder_button)
+        
+        # Add elements to header
         folder_header.addWidget(folder_label)
-        folder_header.addWidget(self.folder_entry)
-        folder_header.addWidget(self.browse_folder_button)
+        folder_header.addWidget(self.folder_entry, 1)  # Allow entry to expand
+        folder_header.addLayout(button_container)
+        
+        # Add header to main folder layout
         folder_layout.addLayout(folder_header)
-
+        
         # Options
         options_layout = QHBoxLayout()
         self.include_subfolders = QCheckBox("Include Subfolders")
@@ -253,9 +272,16 @@ class ChecksumApp(QWidget):
         self.save_folder_results.clicked.connect(self.save_folder_report)
         folder_layout.addWidget(self.save_folder_results)
         
-        folder_tab.setLayout(folder_layout)
+        folder_tab.setLayout(folder_layout)  # Set layout on the tab
 
-        # Add tabs to widget
+        # Create Help button
+        help_button = QPushButton("Help")
+        help_button.clicked.connect(self.show_help_menu)  # Connect click handler
+        
+        # Add to tab widget's corner
+        tab_widget.setCornerWidget(help_button, Qt.TopRightCorner)
+        
+        # Add tabs
         tab_widget.addTab(single_file_tab, "Single File")
         tab_widget.addTab(folder_tab, "Folder Scan")
         
@@ -264,7 +290,7 @@ class ChecksumApp(QWidget):
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(True)  # Make sure the text is visible
         
-        # Add everything to main layout
+        # Add everything else to main layout
         main_layout.addWidget(tab_widget)
         main_layout.addWidget(self.progress_bar)
         
@@ -283,47 +309,32 @@ class ChecksumApp(QWidget):
         self.file_path = file_path
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
-        self.progress_bar.setFormat("Calculating...")  # Initial text
         self.current_file_size = os.path.getsize(file_path)
-        self.total_bytes_read = 0
-        self.finished_threads_count = 0
-        self.algorithms = []
+        
+        # Get selected algorithms
+        self.algorithms = [alg for alg in ['md5', 'sha1', 'sha256', 'sha512'] 
+                          if getattr(self, f"{alg}_var").isChecked()]
+        
+        # Single thread for all hashes
+        self.thread = ChecksumThread(file_path, self.algorithms)
+        self.thread.progress.connect(self.update_progress_bar)
+        self.thread.finished.connect(self.update_all_checksums)
+        self.thread.start()
 
-        self.threads = []
-        for algorithm in ['md5', 'sha1', 'sha256', 'sha512']:
-            if getattr(self, f"{algorithm}_var").isChecked():
-                self.algorithms.append(algorithm)
-                thread = ChecksumThread(file_path, algorithm)
-                thread.finished.connect(self.update_checksum_result)
-                thread.start()
-                self.threads.append(thread)
+    def update_progress_bar(self, progress):
+        self.progress_bar.setValue(progress)
+        self.progress_bar.setFormat(f"Scanning... {progress}%")
 
-        # Use a signal-slot connection for updating the progress
-        self.progress_update.connect(self.update_progress_bar)
-
-        # Start the timer to simulate progress (since we don't track bytes)
-        self.progress_value = 0
-        self.progress_timer.start(50)  # Update every 50 milliseconds
-
-    def update_progress_bar(self):
-        if self.finished_threads_count < len(self.threads):
-            # Simulate progress if not all threads are finished
-            self.progress_value = (self.progress_value + 1) % 101  # Update from 0 to 100
-            self.progress_bar.setValue(self.progress_value)
-            self.progress_bar.setFormat(f"Calculating... {self.progress_value}%")
+    def update_all_checksums(self, results):
+        if 'error' in results:
+            QMessageBox.critical(self, "Error", results['error'])
         else:
-            # All threads are finished
-            self.progress_timer.stop()
-            self.progress_bar.setValue(100)
-            self.progress_bar.setFormat("Complete")
-            self.file_path = ""
-
-    def update_checksum_result(self, algorithm, checksum):
-        if checksum.startswith("Error"):
-            QMessageBox.critical(self, "Error", checksum)
-        else:
-            getattr(self, f"{algorithm}_result").setText(checksum)
-        self.finished_threads_count += 1
+            for alg, checksum in results.items():
+                getattr(self, f"{alg}_result").setText(checksum)
+        
+        self.progress_bar.setValue(100)
+        self.progress_bar.setFormat("Complete")
+        self.file_path = ""
 
     def copy_to_clipboard(self, checksum):
         clipboard = QApplication.clipboard()
@@ -475,6 +486,84 @@ class ChecksumApp(QWidget):
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save report: {e}")
+
+    def check_for_updates(self):
+        try:
+            with urllib.request.urlopen(
+                "https://api.github.com/repos/oop7/pyhashsum/releases/latest"
+            ) as response:
+                data = json.loads(response.read().decode())
+                latest_version = data['tag_name'].lstrip('v')
+                
+                if version.parse(latest_version) > version.parse(self.current_version):
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Information)
+                    msg.setText(f"New version {latest_version} available!\n\n{data['body']}")
+                    msg.setWindowTitle("Update Available")
+                    msg.addButton(QMessageBox.Open).clicked.connect(
+                        lambda: QDesktopServices.openUrl(QUrl(data['html_url']))
+                    )
+                    msg.addButton(QMessageBox.Close)
+                    msg.exec()
+                else:
+                    QMessageBox.information(self, "Up to Date", 
+                        "You're using the latest version!")
+        
+        except Exception as e:
+            QMessageBox.warning(self, "Update Error", 
+                f"Failed to check updates: {str(e)}")
+
+    def show_about(self):
+        about_text = f"""
+        <b>Pyhashsum v{self.current_version}</b><br><br>
+        A cross-platform tool for verifying file integrity through cryptographic hashes.<br>
+        Developed by [Your Name]<br><br>
+        Features:
+        <ul>
+            <li>Calculate MD5, SHA-1, SHA-256, and SHA-512 hashes</li>
+            <li>Batch processing for folders</li>
+            <li>Drag-and-drop support</li>
+            <li>Automatic update checking</li>
+        </ul>
+        Built with Python and PySide6<br>
+        License: MIT<br>
+        GitHub: <a href="https://github.com/oop7/pyhashsum">https://github.com/oop7/pyhashsum</a>
+        """
+        msg = QMessageBox()
+        msg.setWindowTitle("About")
+        msg.setWindowIcon(self.windowIcon())  # Use main window's icon
+        msg.setIconPixmap(QApplication.style().standardIcon(QStyle.SP_MessageBoxInformation).pixmap(64, 64))
+        msg.setTextFormat(Qt.TextFormat.RichText)
+        msg.setText(about_text)
+        msg.exec()
+
+    def show_help_menu(self):
+        # Create menu with rounded corners
+        help_menu = QMenu(self)
+        help_menu.setStyleSheet("""
+            QMenu {
+                background-color: #3b3b3b;
+                border: 1px solid #555;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 5px 25px 5px 20px;
+                margin: 2px;
+            }
+            QMenu::item:selected {
+                background-color: #0078d7;
+                border-radius: 3px;
+            }
+        """)
+        
+        help_menu.addAction("Check for Updates", self.check_for_updates)
+        help_menu.addAction("About", self.show_about)
+        
+        # Position menu
+        help_button = self.sender()
+        pos = help_button.mapToGlobal(help_button.rect().bottomLeft())
+        help_menu.exec(pos)
 
 # Run the application
 if __name__ == '__main__':
