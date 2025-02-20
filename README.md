@@ -21,13 +21,16 @@ Whether you're verifying file integrity, managing large datasets, or ensuring da
 
 ## ✅ **Screenshots**
 
-![Single File Checksum](https://github.com/user-attachments/assets/81608166-8aeb-42f7-8226-9bdbed41ca16)
+![Single File Checksum](https://github.com/user-attachments/assets/26f076c8-558c-435e-8ff3-6f4eab59ec54)
+
 *Generating checksums for a single file.*
 
-![Folder Scan](https://github.com/user-attachments/assets/31fce673-7b7e-41ec-8059-33c40dcde353)
+![Folder Scan](https://github.com/user-attachments/assets/a81e4cbc-ed0d-49f6-b447-b644efb41444)
+
 *Scanning a folder and generating checksums for all files.*
 
-![Save Results](https://github.com/user-attachments/assets/a261fa9d-e3f9-4087-9733-0aca82b852fa)
+![Save Results](https://github.com/user-attachments/assets/d60d5e27-ecd6-4b23-ba74-3f586cbe6dd9)
+
 *Saving results to a file for future reference.*
 
 ---
