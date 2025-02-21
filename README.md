@@ -80,7 +80,7 @@ If you'd like to contribute or modify the source code, follow these steps:
 ## 📦 **PyPI Package**
 
 The package is available on PyPI:  
-[![PyPI version](https://badge.fury.io/py/pyhashsum.svg)](https://pypi.org/project/pyhashsum/)
+[![PyPI version](https://badge.fury.io/py/pyhashsum)](https://pypi.org/project/pyhashsum)
 
 ---
 
