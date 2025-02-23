@@ -517,7 +517,7 @@ class ChecksumApp(QWidget):
         about_text = f"""
         <b>Pyhashsum v{self.current_version}</b><br><br>
         A cross-platform tool for verifying file integrity through cryptographic hashes.<br>
-        Developed by [Your Name]<br><br>
+        Developed by [oop7]<br><br>
         Features:
         <ul>
             <li>Calculate MD5, SHA-1, SHA-256, and SHA-512 hashes</li>
