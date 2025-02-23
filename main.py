@@ -58,7 +58,7 @@ class ChecksumApp(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.current_version = "3.5"
+        self.current_version = "3.5.1"
         self.init_ui()
         self.files_data = []
         self.threads = []
