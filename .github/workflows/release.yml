@@ -6,9 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  build-and-release:
-    name: Build installers and create GitHub Release
-  # No extra job condition needed: workflow only runs on tag pushes
+  build:
+    name: Build installers
     strategy:
       matrix:
         include:
@@ -19,13 +18,9 @@ jobs:
           - os: macos-latest
             target: macos
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -46,34 +41,44 @@ jobs:
             libglib2.0-dev \
             libjavascriptcoregtk-4.0-dev \
             rpm
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             src-tauri
       - name: Install Windows deps (NSIS & WiX)
         if: runner.os == 'Windows'
-        run: |
-          choco install -y nsis wixtoolset
+        run: choco install -y nsis wixtoolset
       - name: Install JS deps
         run: npm ci
       - name: Build app bundles with Tauri
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: |
-          npm run tauri build
+        run: npm run tauri build
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: app-bundles-${{ matrix.target }}
           path: |
             src-tauri/target/release/bundle/**
-      - name: Create release (draft)
+
+  release:
+    name: Create GitHub Release (draft)
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: app-bundles-*
+          path: release-assets
+          merge-multiple: true
+      - name: Create draft release and attach assets
         uses: softprops/action-gh-release@v2
         with:
           draft: true
           files: |
-            src-tauri/target/release/bundle/**
+            release-assets/**
