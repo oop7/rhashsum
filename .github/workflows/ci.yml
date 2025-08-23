@@ -26,7 +26,7 @@ jobs:
     name: Rust build (Tauri backend)
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+  os: [ ubuntu-22.04, windows-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -38,7 +38,6 @@ jobs:
           sudo apt-get install -y \
             pkg-config \
             libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
             libwebkit2gtk-4.0-dev \
             build-essential \
             libssl-dev \
