@@ -4,14 +4,11 @@ on:
   push:
     tags:
       - 'v*'
-  create:
-    # Also run when a tag is created via GitHub UI
-    # We'll gate on tag type in the job condition
 
 jobs:
   build-and-release:
     name: Build installers and create GitHub Release
-  if: startsWith(github.ref, 'refs/tags/v')
+  # No extra job condition needed: workflow only runs on tag pushes
     strategy:
       matrix:
         include:
