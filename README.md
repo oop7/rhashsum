@@ -3,7 +3,7 @@
 Rust Hash Sum is a high-performance, cross-platform desktop application for calculating and verifying file checksums. It's built with a Rust backend for maximum speed and a React frontend for a modern user experience. The application is packaged with Tauri, ensuring a small bundle size and native performance.
 
 <img width="802" height="632" alt="image" src="https://github.com/user-attachments/assets/1655b4b1-4028-4284-ba00-3106ce48453e" />
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge&logo=opensource&logoColor=white)](https://opensource.org/licenses/MIT)
 
 ## Features
 
