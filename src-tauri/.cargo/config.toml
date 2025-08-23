@@ -1,0 +1,4 @@
+# Cargo config for the Tauri Rust crate
+# Move crate-local build flags here instead of Cargo.toml to avoid manifest warnings.
+[build]
+rustflags = ["-C", "target-cpu=native"]

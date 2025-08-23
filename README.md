@@ -1,121 +1,79 @@
-# **PyHashSum**
+# Rust Hash Sum
 
-## ❓ **Overview**
-**PyHashSum** is a powerful yet intuitive graphical tool designed to simplify the process of calculating and verifying checksums using various algorithms such as **MD5**, **SHA-1**, **SHA-256**, and **SHA-512**. With its clean and modern interface, the utility supports drag-and-drop functionality, copying checksum results to the clipboard, and saving results to text or JSON files. Additionally, it allows for folder scanning, making it ideal for batch processing multiple files.
+Rust Hash Sum is a high-performance, cross-platform desktop application for calculating and verifying file checksums. It's built with a Rust backend for maximum speed and a React frontend for a modern user experience. The application is packaged with Tauri, ensuring a small bundle size and native performance.
 
-Whether you're verifying file integrity, managing large datasets, or ensuring data security, PyHashSum has you covered!
+![Application Screenshot](https://i.imgur.com/YOUR_SCREENSHOT_URL.png) <!-- Replace with a real screenshot URL -->
 
----
+## Features
 
-## 💪 **Key Features**
+- **High-Performance Hashing**: The Rust backend is optimized for speed, using memory-mapped files and multi-threading for large files.
+- **Multiple Algorithms**: Supports a wide range of hashing algorithms:
+  - MD5
+  - SHA-1
+  - SHA-256
+  - SHA-512
+  - BLAKE3 (multi-threaded)
+  - xxHash3
+- **Single File and Folder Scanning**: Calculate checksums for individual files or scan entire folders recursively.
+- **Drag and Drop**: Easily drag and drop files into the application to start hashing.
+- **Hash Verification**: Verify a file's integrity by comparing its checksum with a known hash.
+- **Save Reports**: Export hashing results to JSON, CSV, or TXT files.
+- **Cross-Platform**: Works on Windows, macOS, and Linux.
+- **Light and Dark Mode**: Switch between light and dark themes to suit your preference.
 
-- **Drag-and-Drop Support**: Simply drag files into the application to calculate their checksums.
-- **Multiple Hash Algorithms**: Supports **MD5**, **SHA-1**, **SHA-256**, and **SHA-512** hash algorithms.
-- **Copy to Clipboard**: Quickly copy any checksum result to the clipboard for easy sharing.
-- **Save Results**: Save generated checksum results to **text**, **JSON**, or **CSV** files for record-keeping.
-- **Verify Hashes**: Easily verify the integrity of files by comparing the generated hash with a provided hash.
-- **Folder Scanning**: Scan entire folders (including subfolders) to calculate and display checksums for multiple files at once.
-- **Save Folder Results**: Save the results of folder scans as **CSV**, **JSON**, or **text** files for easy documentation and further analysis.
+## Technologies Used
 
----
+- **Backend**: [Rust](https://www.rust-lang.org/)
+- **Frontend**: [React](https://reactjs.org/) with [TypeScript](https://www.typescriptlang.org/)
+- **Framework**: [Tauri](https://tauri.app/)
+- **UI**: [Material-UI](https://mui.com/)
 
-## ✅ **Screenshots**
+## Installation and Usage
 
-![Single File Checksum](https://github.com/user-attachments/assets/26f076c8-558c-435e-8ff3-6f4eab59ec54)
+### Prerequisites
 
-*Generating checksums for a single file.*
+- [Node.js](https://nodejs.org/) and [npm](https://www.npmjs.com/)
+- [Rust](https://www.rust-lang.org/tools/install)
 
-![Folder Scan](https://github.com/user-attachments/assets/a81e4cbc-ed0d-49f6-b447-b644efb41444)
+### Running the Application
 
-*Scanning a folder and generating checksums for all files.*
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/oop7/rhashsum.git
+    cd rhashsum
+    ```
 
-![Save Results](https://github.com/user-attachments/assets/d60d5e27-ecd6-4b23-ba74-3f586cbe6dd9)
+2.  **Install the frontend dependencies:**
+    ```bash
+    npm install
+    ```
 
-*Saving results to a file for future reference.*
+3.  **Run the Tauri development server:**
+    ```bash
+    npm run tauri dev
+    ```
 
----
+### Building the Application
 
-## 🔽 **Installation**
+To build the application for your platform, run:
 
-### Install via pip (Recommended)
 ```bash
-pip install pyhashsum
+npm run tauri build
 ```
 
-### Download Latest Release
-Alternatively, you can download the pre-build executable from [GitHub Releases](https://github.com/oop7/pyhashsum/releases).
+The executable will be located in `src-tauri/target/release/`.
 
----
+## Contributing
 
-## 💻 **Usage**
+Contributions are welcome! If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request.
 
-Run the application from the command line:
-```bash
-pyhashsum
-```
+1.  Fork the repository.
+2.  Create a new branch (`git checkout -b feature/your-feature`).
+3.  Make your changes.
+4.  Commit your changes (`git commit -m 'Add some feature'`).
+5.  Push to the branch (`git push origin feature/your-feature`).
+6.  Open a pull request.
 
----
+## License
 
-## ⚙️ **Development Setup**
-
-If you'd like to contribute or modify the source code, follow these steps:
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/oop7/pyhashsum.git
-   ```
-
-2. Navigate to the project directory:
-   ```bash
-   cd pyhashsum
-   ```
-
-3. Run the application:
-   ```bash
-   python main.py
-   ```
-
----
-
-## 📦 **PyPI Package**
-
-The package is available on PyPI:  
-
-[![PyPI version](https://img.shields.io/pypi/v/pyhashsum.svg)](https://pypi.org/project/pyhashsum/)
-
----
-
-## 🛠️ **How to Use**
-
-### **Single File Checksum Generation**
-
-1. **Open File**: Click the "Browse" button to select a file, or drag and drop the file into the designated area.
-2. **Generate Checksums**: The tool will automatically calculate and display the **MD5**, **SHA-1**, **SHA-256**, and **SHA-512** checksums.
-3. **Copy Checksums**: Use the "Copy" buttons to quickly copy any checksum to the clipboard.
-4. **Save Results**: Click the "Save Report" button to save the checksum results to a **text** or **JSON** file.
-5. **Verify Hash**: Enter a hash in the "Hash" field and click "Verify" to compare it against the calculated checksum.
-
----
-
-### **Folder Scan**
-
-1. **Select Folder**: Click the "Browse Folder" button to choose the folder you want to scan.
-2. **Options**: Opt to include subfolders and hidden files if necessary.
-3. **Scan Folder**: The utility will scan the selected folder and compute the checksums for all files within.
-4. **View Results**: The results are displayed in a table, showing file names, paths, and their corresponding checksums.
-5. **Save Folder Results**: Click "Save Folder Results" to save the scan results as **CSV**, **JSON**, or **text** files.
-
----
-
-## 📜 **License**
-
-This project is licensed under the **MIT License**. See the [LICENSE](https://github.com/oop7/MD5-SHA-Checksum-Utility/blob/main/LICENSE) file for more details.
-
----
-
-## 📙 **Contributing**
-
-We welcome contributions from the community! If you'd like to contribute, feel free to:
-
-- Open an issue to report bugs or suggest features.
-- Submit a pull request with improvements or bug fixes.
+This project is licensed under the MIT License.
