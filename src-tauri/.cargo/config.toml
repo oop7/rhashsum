@@ -1,4 +1,7 @@
 # Cargo config for the Tauri Rust crate
 # Move crate-local build flags here instead of Cargo.toml to avoid manifest warnings.
 [build]
-rustflags = ["-C", "target-cpu=native"]
+# NOTE: Avoid using target-cpu=native for release bundles built on CI.
+# It can produce binaries that fail to start on different CPUs.
+# If you want local-only perf tuning, set RUSTFLAGS in your shell instead.
+# rustflags = ["-C", "target-cpu=native"]
