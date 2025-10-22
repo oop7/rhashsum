@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
-import { open } from '@tauri-apps/api/dialog';
+import { open, save } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { 
@@ -37,18 +37,6 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-
-interface GpgKeyInfo {
-  fingerprint: string;
-  user_ids: string[];
-}
-
-interface GpgVerificationSummary {
-  is_valid: boolean;
-  fingerprint: string;
-  user_ids: string[];
-  messages: string[];
-}
 
 function App() {
   // Theme state with localStorage persistence
@@ -134,7 +122,7 @@ function App() {
   };
 
   useEffect(() => {
-    const unlisten = listen<string[]>('tauri://file-drop', (event) => {
+    const unlisten = listen<string[]>('tauri://file-drop', (event: { payload: string[] }) => {
       if (event.payload.length > 0) {
         const droppedFile = event.payload[0];
         setActiveTab(0);
@@ -152,7 +140,7 @@ function App() {
     });
 
     return () => {
-      unlisten.then(f => f());
+      unlisten.then((f: () => void) => f());
     };
   }, [filePath]);
 
@@ -209,7 +197,6 @@ function App() {
           <Tabs value={activeTab} onChange={handleTabChange} aria-label="basic tabs example">
             <Tab label="Single File" />
             <Tab label="Folder Scan" />
-            <Tab label="GPG Verify" />
           </Tabs>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton onClick={() => setIsDarkMode(!isDarkMode)} color="inherit">
@@ -242,9 +229,6 @@ function App() {
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
           <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} />
-        </TabPanel>
-        <TabPanel value={activeTab} index={2}>
-          <GpgVerifyTab showAlert={showAlert} />
         </TabPanel>
       </Container>
 
@@ -454,15 +438,39 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   }, []);
 
   const handleSaveReport = async () => {
+    if (!filePath) {
+      showAlert('Save Report', 'Select a file before saving the report.');
+      return;
+    }
+
+    const targetPath = await save({
+      title: 'Save File Hash Report',
+      defaultPath: 'hash-report.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (!targetPath || targetPath.length === 0) {
+      return;
+    }
+
     const reportData = {
       File: filePath,
       MD5: md5,
       SHA1: sha1,
       SHA256: sha256,
       SHA512: sha512,
+      BLAKE3: blake3,
+      XXHash3: xxhash3,
     };
-    const jsonData = JSON.stringify(reportData, null, 2);
-    await invoke("save_report", { filePath: "report.json", data: jsonData, format: "json" });
+
+    try {
+      const jsonData = JSON.stringify(reportData, null, 2);
+      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      showAlert('Save Report', `Report saved to ${targetPath}`);
+    } catch (error) {
+      console.error('Failed to save report', error);
+      showAlert('Error', `Failed to save report: ${error}`);
+    }
   };
 
   const handleVerifyHash = async () => {
@@ -510,37 +518,37 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.md5} onChange={(e) => handleAlgorithmChange('md5', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.md5} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('md5', checked)} size="small" />} 
             label="MD5" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(e) => handleAlgorithmChange('sha1', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha1', checked)} size="small" />} 
             label="SHA-1" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(e) => handleAlgorithmChange('sha256', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha256', checked)} size="small" />} 
             label="SHA-256" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(e) => handleAlgorithmChange('sha512', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
             label="SHA-512" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(e) => handleAlgorithmChange('blake3', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake3', checked)} size="small" />} 
             label="BLAKE3" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(e) => handleAlgorithmChange('xxhash3', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('xxhash3', checked)} size="small" />} 
             label="XXHash3" 
           />
         </Grid>
@@ -671,7 +679,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         <TextField
           placeholder="Paste hash to verify"
           value={expectedHash}
-          onChange={(e) => setExpectedHash(e.target.value)}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedHash(event.target.value)}
           fullWidth
           size="small"
           sx={{ mt: 1 }}
@@ -726,8 +734,29 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
   };
 
   const handleSaveReport = async () => {
-    const jsonData = JSON.stringify(files, null, 2);
-    await invoke("save_report", { filePath: "report.json", data: jsonData, format: "json" });
+    if (!files.length) {
+      showAlert('Save Folder Results', 'Scan a folder before saving results.');
+      return;
+    }
+
+    const targetPath = await save({
+      title: 'Save Folder Hash Results',
+      defaultPath: 'folder-hash-results.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (!targetPath || targetPath.length === 0) {
+      return;
+    }
+
+    try {
+      const jsonData = JSON.stringify(files, null, 2);
+      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      showAlert('Save Folder Results', `Results saved to ${targetPath}`);
+    } catch (error) {
+      console.error('Failed to save folder results', error);
+      showAlert('Error', `Failed to save folder results: ${error}`);
+    }
   };
 
   return (
@@ -746,37 +775,37 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
             <Grid container spacing={1}>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.md5} onChange={(e) => handleAlgorithmChange('md5', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.md5} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('md5', checked)} size="small" />} 
                   label="MD5" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(e) => handleAlgorithmChange('sha1', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha1', checked)} size="small" />} 
                   label="SHA-1" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(e) => handleAlgorithmChange('sha256', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha256', checked)} size="small" />} 
                   label="SHA-256" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(e) => handleAlgorithmChange('sha512', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
                   label="SHA-512" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(e) => handleAlgorithmChange('blake3', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake3', checked)} size="small" />} 
                   label="BLAKE3" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(e) => handleAlgorithmChange('xxhash3', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('xxhash3', checked)} size="small" />} 
                   label="XXHash3" 
                 />
               </Grid>
@@ -823,170 +852,3 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 };
 
 export default App;
-
-interface GpgVerifyTabProps {
-  showAlert: (title: string, message: string) => void;
-}
-
-const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
-  const [targetFile, setTargetFile] = useState("");
-  const [signatureFile, setSignatureFile] = useState("");
-  const [publicKeyFile, setPublicKeyFile] = useState("");
-  const [expectedFingerprint, setExpectedFingerprint] = useState("");
-  const [keyInfo, setKeyInfo] = useState<GpgKeyInfo | null>(null);
-  const [verificationResult, setVerificationResult] = useState<GpgVerificationSummary | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-
-  const handleBrowse = async (setter: (value: string) => void, options?: Parameters<typeof open>[0]) => {
-    const selected = await open({ multiple: false, ...options });
-    if (typeof selected === 'string') {
-      setter(selected);
-    }
-  };
-
-  useEffect(() => {
-    const loadKeyInfo = async () => {
-      if (!publicKeyFile) {
-        setKeyInfo(null);
-        return;
-      }
-      try {
-        const info = await invoke<GpgKeyInfo>('inspect_gpg_key', { path: publicKeyFile });
-        setKeyInfo(info);
-        if (!expectedFingerprint) {
-          setExpectedFingerprint(info.fingerprint);
-        }
-      } catch (error) {
-        console.error('Failed to load key info', error);
-        showAlert('GPG Key', `Unable to read key: ${error}`);
-        setKeyInfo(null);
-      }
-    };
-    loadKeyInfo();
-  }, [publicKeyFile, expectedFingerprint]);
-
-  const handleVerify = async () => {
-    if (!targetFile || !signatureFile || !publicKeyFile) {
-      showAlert('GPG Verify', 'Select a file, signature, and public key to verify.');
-      return;
-    }
-
-    setIsVerifying(true);
-    setVerificationResult(null);
-    try {
-      const summary = await invoke<GpgVerificationSummary>('verify_gpg_signature', {
-        filePath: targetFile,
-        signaturePath: signatureFile,
-        publicKeyPath: publicKeyFile,
-      });
-      setVerificationResult(summary);
-
-      if (!summary.is_valid) {
-        showAlert('GPG Verify', 'Signature verification failed. Review the details below.');
-      } else if (expectedFingerprint && summary.fingerprint.toLowerCase() !== expectedFingerprint.toLowerCase()) {
-        showAlert('Fingerprint Warning', 'Signature is valid but the fingerprint does not match the expected value.');
-      } else {
-        showAlert('GPG Verify', 'Signature verified successfully.');
-      }
-    } catch (error) {
-      console.error('GPG verification failed', error);
-      showAlert('GPG Verify', `Verification failed: ${error}`);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const fingerprintMatches = verificationResult && expectedFingerprint && verificationResult.fingerprint.toLowerCase() === expectedFingerprint.toLowerCase();
-
-  return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>Verify Detached GPG Signatures</Typography>
-
-      <Grid container spacing={2} alignItems="center">
-        <Grid item xs={9}>
-          <TextField label="Signed File" value={targetFile} fullWidth InputProps={{ readOnly: true }} />
-        </Grid>
-        <Grid item xs={3}>
-          <Button variant="contained" onClick={() => handleBrowse(setTargetFile)} fullWidth disabled={isVerifying}>Browse</Button>
-        </Grid>
-
-        <Grid item xs={9}>
-          <TextField label="Signature (.sig/.asc)" value={signatureFile} fullWidth InputProps={{ readOnly: true }} />
-        </Grid>
-        <Grid item xs={3}>
-          <Button variant="contained" onClick={() => handleBrowse(setSignatureFile)} fullWidth disabled={isVerifying}>Browse</Button>
-        </Grid>
-
-        <Grid item xs={9}>
-          <TextField label="Public Key (.asc/.gpg)" value={publicKeyFile} fullWidth InputProps={{ readOnly: true }} />
-        </Grid>
-        <Grid item xs={3}>
-          <Button variant="contained" onClick={() => handleBrowse(setPublicKeyFile)} fullWidth disabled={isVerifying}>Browse</Button>
-        </Grid>
-      </Grid>
-
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="subtitle2">Expected Fingerprint</Typography>
-        <TextField
-          value={expectedFingerprint}
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedFingerprint(event.target.value)}
-          fullWidth
-          size="small"
-          sx={{ mt: 1 }}
-          placeholder="Paste known fingerprint (optional)"
-        />
-      </Box>
-
-      {keyInfo && (
-        <Box sx={{ mt: 2, p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle2">Key Details</Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>Fingerprint: {keyInfo.fingerprint}</Typography>
-          {keyInfo.user_ids.length > 0 && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              User IDs:
-              <br />
-              {keyInfo.user_ids.map((uid, idx) => (
-                <span key={idx}>{uid}{idx < keyInfo.user_ids.length - 1 ? <br /> : null}</span>
-              ))}
-            </Typography>
-          )}
-        </Box>
-      )}
-
-      <Button variant="contained" onClick={handleVerify} fullWidth sx={{ mt: 3 }} disabled={isVerifying}>
-        {isVerifying ? 'Verifying…' : 'Verify Signature'}
-      </Button>
-
-      {verificationResult && (
-        <Box sx={{ mt: 3, p: 2, borderRadius: 1, border: '1px solid', borderColor: verificationResult.is_valid ? 'success.main' : 'error.main' }}>
-          <Typography variant="subtitle1">Verification Result</Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>Signature Valid: {verificationResult.is_valid ? 'Yes' : 'No'}</Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>Fingerprint: {verificationResult.fingerprint}</Typography>
-          {expectedFingerprint && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Fingerprint Match: {fingerprintMatches ? 'Matches expected' : 'Does not match expected'}
-            </Typography>
-          )}
-          {verificationResult.user_ids.length > 0 && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Signer IDs:
-              <br />
-              {verificationResult.user_ids.map((uid, idx) => (
-                <span key={idx}>{uid}{idx < verificationResult.user_ids.length - 1 ? <br /> : null}</span>
-              ))}
-            </Typography>
-          )}
-          {verificationResult.messages.length > 0 && (
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Details:
-              <br />
-              {verificationResult.messages.map((msg, idx) => (
-                <span key={idx}>{msg}{idx < verificationResult.messages.length - 1 ? <br /> : null}</span>
-              ))}
-            </Typography>
-          )}
-        </Box>
-      )}
-    </Box>
-  );
-};

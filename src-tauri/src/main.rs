@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use tauri::command;
 use tokio::sync::Semaphore;
@@ -19,13 +20,6 @@ use sha1::{Sha1, Digest as Sha1Digest};
 use sha2::{Sha256, Sha512, Digest as Sha2Digest};
 use blake3::Hasher as Blake3Hasher;
 use xxhash_rust::xxh3::Xxh3 as XxHash3;
-use sequoia_openpgp::{
-    cert::Cert,
-    parse::Parse,
-    parse::stream::{DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationHelper},
-    policy::StandardPolicy,
-    KeyHandle,
-};
 
 struct AppState {
     cancel: Arc<AtomicBool>,
@@ -379,9 +373,15 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
 
 #[command]
 async fn save_report(file_path: String, data: String, format: String) -> Result<(), String> {
+    if let Some(parent) = Path::new(&file_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
+        }
+    }
+
     match format.as_str() {
         "json" => {
-            let mut file = tokio::fs::File::create(file_path).await.map_err(|e| e.to_string())?;
+            let mut file = tokio::fs::File::create(&file_path).await.map_err(|e| e.to_string())?;
             tokio::io::AsyncWriteExt::write_all(&mut file, data.as_bytes()).await.map_err(|e| e.to_string())?;
         }
         "csv" => {
@@ -393,143 +393,12 @@ async fn save_report(file_path: String, data: String, format: String) -> Result<
             wtr.flush().map_err(|e| e.to_string())?;
         }
         "txt" => {
-            let mut file = tokio::fs::File::create(file_path).await.map_err(|e| e.to_string())?;
+            let mut file = tokio::fs::File::create(&file_path).await.map_err(|e| e.to_string())?;
             tokio::io::AsyncWriteExt::write_all(&mut file, data.as_bytes()).await.map_err(|e| e.to_string())?;
         }
         _ => return Err("Unsupported format".to_string()),
     }
     Ok(())
-}
-
-#[derive(serde::Serialize)]
-struct GpgKeyInfo {
-    fingerprint: String,
-    user_ids: Vec<String>,
-}
-
-#[derive(serde::Serialize)]
-struct GpgVerificationSummary {
-    is_valid: bool,
-    fingerprint: String,
-    user_ids: Vec<String>,
-    messages: Vec<String>,
-}
-
-struct GpgVerificationHelper {
-    cert: Cert,
-    messages: Vec<String>,
-    verified: bool,
-}
-
-impl VerificationHelper for GpgVerificationHelper {
-    fn get_certs(&mut self, _ids: &[KeyHandle]) -> sequoia_openpgp::Result<Vec<Cert>> {
-        Ok(vec![self.cert.clone()])
-    }
-
-    fn check(&mut self, structure: MessageStructure) -> sequoia_openpgp::Result<()> {
-        for layer in structure.into_iter() {
-            if let MessageLayer::SignatureGroup { results } = layer {
-                for result in results {
-                    match result {
-                        Ok(good_checksum) => {
-                            self.verified = true;
-                            let fingerprint = good_checksum
-                                .ka
-                                .cert()
-                                .fingerprint()
-                                .to_string();
-                            self.messages.push(format!(
-                                "Signature verified by certificate {fingerprint}"
-                            ));
-                        }
-                        Err(err) => {
-                            self.messages.push(format!("Verification error: {err}"));
-                        }
-                    }
-                }
-            }
-        }
-
-        if !self.verified && self.messages.is_empty() {
-            self.messages
-                .push("No valid signatures found".to_string());
-        }
-        Ok(())
-    }
-}
-
-impl GpgVerificationHelper {
-    fn into_summary(self) -> GpgVerificationSummary {
-        let fingerprint = self.cert.fingerprint().to_string();
-        let user_ids = self
-            .cert
-            .userids()
-            .map(|uid| {
-                let userid = uid.userid();
-                String::from_utf8_lossy(userid.value()).to_string()
-            })
-            .collect::<Vec<_>>();
-
-        GpgVerificationSummary {
-            is_valid: self.verified,
-            fingerprint,
-            user_ids,
-            messages: self.messages,
-        }
-    }
-}
-
-#[command]
-async fn inspect_gpg_key(path: String) -> Result<GpgKeyInfo, String> {
-    let data = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
-    let mut cursor = std::io::Cursor::new(data);
-    let cert = Cert::from_reader(&mut cursor).map_err(|e| e.to_string())?;
-
-    let fingerprint = cert.fingerprint().to_string();
-    let user_ids = cert
-        .userids()
-        .map(|uid| {
-            let userid = uid.userid();
-            String::from_utf8_lossy(userid.value()).to_string()
-        })
-        .collect::<Vec<_>>();
-
-    Ok(GpgKeyInfo { fingerprint, user_ids })
-}
-
-#[command]
-async fn verify_gpg_signature(file_path: String, signature_path: String, public_key_path: String) -> Result<GpgVerificationSummary, String> {
-    let policy = StandardPolicy::new();
-
-    let result = tauri::async_runtime::spawn_blocking(move || -> Result<GpgVerificationSummary, String> {
-        let pub_data = std::fs::read(&public_key_path).map_err(|e| e.to_string())?;
-        let sig_data = std::fs::read(&signature_path).map_err(|e| e.to_string())?;
-        let mut pub_cursor = std::io::Cursor::new(pub_data);
-        let cert = Cert::from_reader(&mut pub_cursor).map_err(|e| e.to_string())?;
-
-        let helper = GpgVerificationHelper {
-            cert,
-            messages: Vec::new(),
-            verified: false,
-        };
-
-        let builder = DetachedVerifierBuilder::from_bytes(&sig_data).map_err(|e| e.to_string())?;
-        let mut verifier = builder
-            .with_policy(&policy, None, helper)
-            .map_err(|e| e.to_string())?;
-
-        let mut file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
-        verifier
-            .verify_reader(&mut file)
-            .map_err(|e| e.to_string())?;
-
-        let helper = verifier.into_helper();
-        Ok(helper.into_summary())
-    })
-    .await
-    .map_err(|e| e.to_string())?;
-
-    result
 }
 
 #[command]
@@ -586,8 +455,6 @@ fn main() {
             scan_folder,
             save_report,
             verify_hash,
-            inspect_gpg_key,
-            verify_gpg_signature,
             check_for_updates,
             is_path_file,
             cancel_hashing,
