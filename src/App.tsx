@@ -32,6 +32,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Link,
 } from "@mui/material";
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -235,7 +236,7 @@ function App() {
       {/* About Dialog */}
       <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ textAlign: 'center' }}>
-          🔐 Rust Hash Sum v4.0.0
+          🔐 Rust Hash Sum
         </DialogTitle>
         <DialogContent>
           <Typography variant="h6" gutterBottom>
@@ -244,7 +245,7 @@ function App() {
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Built with Tauri + Rust + React
           </Typography>
-          
+
           <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
             📋 Supported Algorithms:
           </Typography>
@@ -259,26 +260,33 @@ function App() {
           </Typography>
           <Typography variant="body2">
             • Optimized for large files (5GB+ support)<br/>
-            • Multithreaded BLAKE3 processing<br/>
-            • Memory-mapped file access<br/>
-            • Algorithm selection & preferences<br/>
-            • Single file & folder scanning<br/>
-            • Light/Dark theme support
+            • Multithreaded BLAKE3 + XXHash3 engines<br/>
+            • Memory-mapped file access for streaming<br/>
+            • Persistent algorithm & theme preferences<br/>
+            • Single file & recursive folder hashing<br/>
+            • Hash verification & exportable reports
           </Typography>
 
           <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
             💻 Technology Stack:
           </Typography>
           <Typography variant="body2">
-            • Backend: Rust with Tauri framework<br/>
+            • Backend: Rust with the Tauri framework<br/>
             • Frontend: React with TypeScript<br/>
             • UI: Material-UI components<br/>
-            • Performance: BLAKE3 + Memory mapping
+            • Performance: BLAKE3 acceleration + memory mapping
+          </Typography>
+
+          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
+            👥 Author & Source:
+          </Typography>
+          <Typography variant="body2">
+            • Author: <Link href="https://github.com/oop7" target="_blank" rel="noopener">oop7</Link><br/>
+            • Repository: <Link href="https://github.com/oop7/rhashsum" target="_blank" rel="noopener">github.com/oop7/rhashsum</Link>
           </Typography>
 
           <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
-            🛠️ Developed with advanced optimization techniques<br/>
-            Built for maximum speed and reliability
+            🛠️ Crafted for maximum speed, reliability, and developer ergonomics
           </Typography>
         </DialogContent>
         <DialogActions>
