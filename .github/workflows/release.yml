@@ -19,10 +19,10 @@ jobs:
             target: macos
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install Linux deps (Tauri)
         if: runner.os == 'Linux'
@@ -42,7 +42,7 @@ jobs:
             libjavascriptcoregtk-4.0-dev \
             rpm
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.8.1
         with:
           workspaces: |
             src-tauri
@@ -70,7 +70,7 @@ jobs:
             echo "No .app bundle found to zip"
           fi
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: app-bundles-${{ matrix.target }}
           path: |
@@ -90,7 +90,7 @@ jobs:
       contents: write
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5.0.0
         with:
           pattern: app-bundles-*
           path: release-assets
@@ -109,7 +109,7 @@ jobs:
           fi
           popd > /dev/null
       - name: Create draft release and attach assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.4.1
         with:
           draft: true
           files: |

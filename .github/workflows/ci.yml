@@ -11,10 +11,10 @@ jobs:
     name: Frontend build (Vite)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - name: Install deps
         run: npm ci
@@ -31,7 +31,7 @@ jobs:
           - windows-latest
           - macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Linux deps (Tauri)
         if: runner.os == 'Linux'
         run: |
@@ -52,7 +52,7 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install -y nsis wixtoolset
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.8.1
         with:
           workspaces: |
             src-tauri
