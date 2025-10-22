@@ -23,7 +23,7 @@ use xxhash_rust::xxh3::Xxh3 as XxHash3;
 use sequoia_openpgp::{
     cert::Cert,
     parse::Parse,
-    parse::stream::{DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationHelper, VerificationResult},
+    parse::stream::{DetachedVerifierBuilder, GoodChecksum, MessageLayer, MessageStructure, VerificationHelper},
     policy::StandardPolicy,
     KeyHandle,
 };
@@ -440,12 +440,13 @@ impl VerificationHelper for GpgVerificationHelper {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for result in results {
                     match result {
-                        Ok(VerificationResult::GoodChecksum { .. }) => {
+                        Ok(good_checksum) => {
                             self.verified = true;
-                            self.messages.push("Signature verified successfully".to_string());
-                        }
-                        Ok(other) => {
-                            self.messages.push(format!("Signature status: {:?}", other));
+                            let message = good_checksum
+                                .signer()
+                                .map(|s| format!("Signature verified: {}", s.fingerprint()))
+                                .unwrap_or_else(|| "Signature verified".to_string());
+                            self.messages.push(message);
                         }
                         Err(err) => {
                             self.messages.push(format!("Verification error: {err}"));
@@ -462,7 +463,10 @@ impl VerificationHelper for GpgVerificationHelper {
         let user_ids = self
             .cert
             .userids()
-            .map(|uid| String::from_utf8_lossy(uid.userid()).to_string())
+            .map(|uid| {
+                let userid = uid.userid();
+                String::from_utf8_lossy(userid.value()).to_string()
+            })
             .collect::<Vec<_>>();
 
         Ok(GpgVerificationSummary {
@@ -483,7 +487,10 @@ async fn inspect_gpg_key(path: String) -> Result<GpgKeyInfo, String> {
     let fingerprint = cert.fingerprint().to_string();
     let user_ids = cert
         .userids()
-        .map(|uid| String::from_utf8_lossy(uid.userid()).to_string())
+        .map(|uid| {
+            let userid = uid.userid();
+            String::from_utf8_lossy(userid.value()).to_string()
+        })
         .collect::<Vec<_>>();
 
     Ok(GpgKeyInfo { fingerprint, user_ids })
@@ -511,8 +518,9 @@ async fn verify_gpg_signature(file_path: String, signature_path: String, public_
             .map_err(|e| e.to_string())?;
 
         let mut file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
-        std::io::copy(&mut file, &mut verifier).map_err(|e| e.to_string())?;
-        let summary = verifier.finish().map_err(|e| e.to_string())?;
+        let summary = verifier
+            .verify_reader(&mut file)
+            .map_err(|e| e.to_string())?;
         Ok(summary)
     })
     .await
