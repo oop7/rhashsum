@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
-import { open } from '@tauri-apps/api/dialog';
+import { open, save } from '@tauri-apps/api/dialog';
 import { listen } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { 
@@ -122,7 +122,7 @@ function App() {
   };
 
   useEffect(() => {
-    const unlisten = listen<string[]>('tauri://file-drop', (event) => {
+    const unlisten = listen<string[]>('tauri://file-drop', (event: { payload: string[] }) => {
       if (event.payload.length > 0) {
         const droppedFile = event.payload[0];
         setActiveTab(0);
@@ -140,7 +140,7 @@ function App() {
     });
 
     return () => {
-      unlisten.then(f => f());
+      unlisten.then((f: () => void) => f());
     };
   }, [filePath]);
 
@@ -438,15 +438,39 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   }, []);
 
   const handleSaveReport = async () => {
+    if (!filePath) {
+      showAlert('Save Report', 'Select a file before saving the report.');
+      return;
+    }
+
+    const targetPath = await save({
+      title: 'Save File Hash Report',
+      defaultPath: 'hash-report.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (!targetPath || targetPath.length === 0) {
+      return;
+    }
+
     const reportData = {
       File: filePath,
       MD5: md5,
       SHA1: sha1,
       SHA256: sha256,
       SHA512: sha512,
+      BLAKE3: blake3,
+      XXHash3: xxhash3,
     };
-    const jsonData = JSON.stringify(reportData, null, 2);
-    await invoke("save_report", { filePath: "report.json", data: jsonData, format: "json" });
+
+    try {
+      const jsonData = JSON.stringify(reportData, null, 2);
+      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      showAlert('Save Report', `Report saved to ${targetPath}`);
+    } catch (error) {
+      console.error('Failed to save report', error);
+      showAlert('Error', `Failed to save report: ${error}`);
+    }
   };
 
   const handleVerifyHash = async () => {
@@ -494,37 +518,37 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.md5} onChange={(e) => handleAlgorithmChange('md5', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.md5} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('md5', checked)} size="small" />} 
             label="MD5" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(e) => handleAlgorithmChange('sha1', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha1', checked)} size="small" />} 
             label="SHA-1" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(e) => handleAlgorithmChange('sha256', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha256', checked)} size="small" />} 
             label="SHA-256" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(e) => handleAlgorithmChange('sha512', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
             label="SHA-512" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(e) => handleAlgorithmChange('blake3', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake3', checked)} size="small" />} 
             label="BLAKE3" 
           />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
-            control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(e) => handleAlgorithmChange('xxhash3', e.target.checked)} size="small" />} 
+            control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('xxhash3', checked)} size="small" />} 
             label="XXHash3" 
           />
         </Grid>
@@ -655,7 +679,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         <TextField
           placeholder="Paste hash to verify"
           value={expectedHash}
-          onChange={(e) => setExpectedHash(e.target.value)}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedHash(event.target.value)}
           fullWidth
           size="small"
           sx={{ mt: 1 }}
@@ -710,8 +734,29 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
   };
 
   const handleSaveReport = async () => {
-    const jsonData = JSON.stringify(files, null, 2);
-    await invoke("save_report", { filePath: "report.json", data: jsonData, format: "json" });
+    if (!files.length) {
+      showAlert('Save Folder Results', 'Scan a folder before saving results.');
+      return;
+    }
+
+    const targetPath = await save({
+      title: 'Save Folder Hash Results',
+      defaultPath: 'folder-hash-results.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+
+    if (!targetPath || targetPath.length === 0) {
+      return;
+    }
+
+    try {
+      const jsonData = JSON.stringify(files, null, 2);
+      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      showAlert('Save Folder Results', `Results saved to ${targetPath}`);
+    } catch (error) {
+      console.error('Failed to save folder results', error);
+      showAlert('Error', `Failed to save folder results: ${error}`);
+    }
   };
 
   return (
@@ -730,37 +775,37 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
             <Grid container spacing={1}>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.md5} onChange={(e) => handleAlgorithmChange('md5', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.md5} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('md5', checked)} size="small" />} 
                   label="MD5" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(e) => handleAlgorithmChange('sha1', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha1} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha1', checked)} size="small" />} 
                   label="SHA-1" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(e) => handleAlgorithmChange('sha256', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha256', checked)} size="small" />} 
                   label="SHA-256" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(e) => handleAlgorithmChange('sha512', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
                   label="SHA-512" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(e) => handleAlgorithmChange('blake3', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake3', checked)} size="small" />} 
                   label="BLAKE3" 
                 />
               </Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
-                  control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(e) => handleAlgorithmChange('xxhash3', e.target.checked)} size="small" />} 
+                  control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('xxhash3', checked)} size="small" />} 
                   label="XXHash3" 
                 />
               </Grid>
