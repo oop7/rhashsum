@@ -38,6 +38,18 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 
+interface GpgKeyInfo {
+  fingerprint: string;
+  user_ids: string[];
+}
+
+interface GpgVerificationSummary {
+  is_valid: boolean;
+  fingerprint: string;
+  user_ids: string[];
+  messages: string[];
+}
+
 function App() {
   // Theme state with localStorage persistence
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -197,6 +209,7 @@ function App() {
           <Tabs value={activeTab} onChange={handleTabChange} aria-label="basic tabs example">
             <Tab label="Single File" />
             <Tab label="Folder Scan" />
+            <Tab label="GPG Verify" />
           </Tabs>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton onClick={() => setIsDarkMode(!isDarkMode)} color="inherit">
@@ -229,6 +242,9 @@ function App() {
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
           <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} />
+        </TabPanel>
+        <TabPanel value={activeTab} index={2}>
+          <GpgVerifyTab showAlert={showAlert} />
         </TabPanel>
       </Container>
 
@@ -852,3 +868,170 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 };
 
 export default App;
+
+interface GpgVerifyTabProps {
+  showAlert: (title: string, message: string) => void;
+}
+
+const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
+  const [targetFile, setTargetFile] = useState("");
+  const [signatureFile, setSignatureFile] = useState("");
+  const [publicKeyFile, setPublicKeyFile] = useState("");
+  const [expectedFingerprint, setExpectedFingerprint] = useState("");
+  const [keyInfo, setKeyInfo] = useState<GpgKeyInfo | null>(null);
+  const [verificationResult, setVerificationResult] = useState<GpgVerificationSummary | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleBrowse = async (setter: (value: string) => void, options?: Parameters<typeof open>[0]) => {
+    const selected = await open({ multiple: false, ...options });
+    if (typeof selected === 'string') {
+      setter(selected);
+    }
+  };
+
+  useEffect(() => {
+    const loadKeyInfo = async () => {
+      if (!publicKeyFile) {
+        setKeyInfo(null);
+        return;
+      }
+      try {
+        const info = await invoke<GpgKeyInfo>('inspect_gpg_key', { path: publicKeyFile });
+        setKeyInfo(info);
+        if (!expectedFingerprint) {
+          setExpectedFingerprint(info.fingerprint);
+        }
+      } catch (error) {
+        console.error('Failed to load key info', error);
+        showAlert('GPG Key', `Unable to read key: ${error}`);
+        setKeyInfo(null);
+      }
+    };
+    loadKeyInfo();
+  }, [publicKeyFile, expectedFingerprint]);
+
+  const handleVerify = async () => {
+    if (!targetFile || !signatureFile || !publicKeyFile) {
+      showAlert('GPG Verify', 'Select a file, signature, and public key to verify.');
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerificationResult(null);
+    try {
+      const summary = await invoke<GpgVerificationSummary>('verify_gpg_signature', {
+        filePath: targetFile,
+        signaturePath: signatureFile,
+        publicKeyPath: publicKeyFile,
+      });
+      setVerificationResult(summary);
+
+      if (!summary.is_valid) {
+        showAlert('GPG Verify', 'Signature verification failed. Review the details below.');
+      } else if (expectedFingerprint && summary.fingerprint.toLowerCase() !== expectedFingerprint.toLowerCase()) {
+        showAlert('Fingerprint Warning', 'Signature is valid but the fingerprint does not match the expected value.');
+      } else {
+        showAlert('GPG Verify', 'Signature verified successfully.');
+      }
+    } catch (error) {
+      console.error('GPG verification failed', error);
+      showAlert('GPG Verify', `Verification failed: ${error}`);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const fingerprintMatches = verificationResult && expectedFingerprint && verificationResult.fingerprint.toLowerCase() === expectedFingerprint.toLowerCase();
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>Verify Detached GPG Signatures</Typography>
+
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={9}>
+          <TextField label="Signed File" value={targetFile} fullWidth InputProps={{ readOnly: true }} />
+        </Grid>
+        <Grid item xs={3}>
+          <Button variant="contained" onClick={() => handleBrowse(setTargetFile)} fullWidth disabled={isVerifying}>Browse</Button>
+        </Grid>
+
+        <Grid item xs={9}>
+          <TextField label="Signature (.sig/.asc)" value={signatureFile} fullWidth InputProps={{ readOnly: true }} />
+        </Grid>
+        <Grid item xs={3}>
+          <Button variant="contained" onClick={() => handleBrowse(setSignatureFile)} fullWidth disabled={isVerifying}>Browse</Button>
+        </Grid>
+
+        <Grid item xs={9}>
+          <TextField label="Public Key (.asc/.gpg)" value={publicKeyFile} fullWidth InputProps={{ readOnly: true }} />
+        </Grid>
+        <Grid item xs={3}>
+          <Button variant="contained" onClick={() => handleBrowse(setPublicKeyFile)} fullWidth disabled={isVerifying}>Browse</Button>
+        </Grid>
+      </Grid>
+
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="subtitle2">Expected Fingerprint</Typography>
+        <TextField
+          value={expectedFingerprint}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedFingerprint(event.target.value)}
+          fullWidth
+          size="small"
+          sx={{ mt: 1 }}
+          placeholder="Paste known fingerprint (optional)"
+        />
+      </Box>
+
+      {keyInfo && (
+        <Box sx={{ mt: 2, p: 2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle2">Key Details</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>Fingerprint: {keyInfo.fingerprint}</Typography>
+          {keyInfo.user_ids.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              User IDs:
+              <br />
+              {keyInfo.user_ids.map((uid, idx) => (
+                <span key={idx}>{uid}{idx < keyInfo.user_ids.length - 1 ? <br /> : null}</span>
+              ))}
+            </Typography>
+          )}
+        </Box>
+      )}
+
+      <Button variant="contained" onClick={handleVerify} fullWidth sx={{ mt: 3 }} disabled={isVerifying}>
+        {isVerifying ? 'Verifying…' : 'Verify Signature'}
+      </Button>
+
+      {verificationResult && (
+        <Box sx={{ mt: 3, p: 2, borderRadius: 1, border: '1px solid', borderColor: verificationResult.is_valid ? 'success.main' : 'error.main' }}>
+          <Typography variant="subtitle1">Verification Result</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>Signature Valid: {verificationResult.is_valid ? 'Yes' : 'No'}</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>Fingerprint: {verificationResult.fingerprint}</Typography>
+          {expectedFingerprint && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Fingerprint Match: {fingerprintMatches ? 'Matches expected' : 'Does not match expected'}
+            </Typography>
+          )}
+          {verificationResult.user_ids.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Signer IDs:
+              <br />
+              {verificationResult.user_ids.map((uid, idx) => (
+                <span key={idx}>{uid}{idx < verificationResult.user_ids.length - 1 ? <br /> : null}</span>
+              ))}
+            </Typography>
+          )}
+          {verificationResult.messages.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Details:
+              <br />
+              {verificationResult.messages.map((msg, idx) => (
+                <span key={idx}>{msg}{idx < verificationResult.messages.length - 1 ? <br /> : null}</span>
+              ))}
+            </Typography>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};

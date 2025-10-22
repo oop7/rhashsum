@@ -20,6 +20,13 @@ use sha1::{Sha1, Digest as Sha1Digest};
 use sha2::{Sha256, Sha512, Digest as Sha2Digest};
 use blake3::Hasher as Blake3Hasher;
 use xxhash_rust::xxh3::Xxh3 as XxHash3;
+use sequoia_openpgp::{
+    cert::Cert,
+    parse::Parse,
+    parse::stream::{DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationHelper, VerificationResult},
+    policy::StandardPolicy,
+    KeyHandle,
+};
 
 struct AppState {
     cancel: Arc<AtomicBool>,
@@ -401,6 +408,119 @@ async fn save_report(file_path: String, data: String, format: String) -> Result<
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct GpgKeyInfo {
+    fingerprint: String,
+    user_ids: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct GpgVerificationSummary {
+    is_valid: bool,
+    fingerprint: String,
+    user_ids: Vec<String>,
+    messages: Vec<String>,
+}
+
+struct GpgVerificationHelper {
+    cert: Cert,
+    messages: Vec<String>,
+    verified: bool,
+}
+
+impl VerificationHelper for GpgVerificationHelper {
+    type Response = GpgVerificationSummary;
+
+    fn get_certs(&mut self, _ids: &[KeyHandle]) -> sequoia_openpgp::Result<Vec<Cert>> {
+        Ok(vec![self.cert.clone()])
+    }
+
+    fn check(&mut self, structure: &MessageStructure) -> sequoia_openpgp::Result<()> {
+        for layer in structure.iter() {
+            if let MessageLayer::SignatureGroup { results } = layer {
+                for result in results {
+                    match result {
+                        Ok(VerificationResult::GoodChecksum { .. }) => {
+                            self.verified = true;
+                            self.messages.push("Signature verified successfully".to_string());
+                        }
+                        Ok(other) => {
+                            self.messages.push(format!("Signature status: {:?}", other));
+                        }
+                        Err(err) => {
+                            self.messages.push(format!("Verification error: {err}"));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn finish(self, _structure: MessageStructure) -> sequoia_openpgp::Result<Self::Response> {
+        let fingerprint = self.cert.fingerprint().to_string();
+        let user_ids = self
+            .cert
+            .userids()
+            .map(|uid| String::from_utf8_lossy(uid.userid()).to_string())
+            .collect::<Vec<_>>();
+
+        Ok(GpgVerificationSummary {
+            is_valid: self.verified,
+            fingerprint,
+            user_ids,
+            messages: self.messages,
+        })
+    }
+}
+
+#[command]
+async fn inspect_gpg_key(path: String) -> Result<GpgKeyInfo, String> {
+    let data = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
+    let mut cursor = std::io::Cursor::new(data);
+    let cert = Cert::from_reader(&mut cursor).map_err(|e| e.to_string())?;
+
+    let fingerprint = cert.fingerprint().to_string();
+    let user_ids = cert
+        .userids()
+        .map(|uid| String::from_utf8_lossy(uid.userid()).to_string())
+        .collect::<Vec<_>>();
+
+    Ok(GpgKeyInfo { fingerprint, user_ids })
+}
+
+#[command]
+async fn verify_gpg_signature(file_path: String, signature_path: String, public_key_path: String) -> Result<GpgVerificationSummary, String> {
+    let policy = StandardPolicy::new();
+
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<GpgVerificationSummary, String> {
+        let pub_data = std::fs::read(&public_key_path).map_err(|e| e.to_string())?;
+        let sig_data = std::fs::read(&signature_path).map_err(|e| e.to_string())?;
+        let mut pub_cursor = std::io::Cursor::new(pub_data);
+        let cert = Cert::from_reader(&mut pub_cursor).map_err(|e| e.to_string())?;
+
+        let helper = GpgVerificationHelper {
+            cert,
+            messages: Vec::new(),
+            verified: false,
+        };
+
+        let builder = DetachedVerifierBuilder::from_bytes(&sig_data).map_err(|e| e.to_string())?;
+        let mut verifier = builder
+            .with_policy(&policy, None, helper)
+            .map_err(|e| e.to_string())?;
+
+        let mut file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
+        std::io::copy(&mut file, &mut verifier).map_err(|e| e.to_string())?;
+        let summary = verifier.finish().map_err(|e| e.to_string())?;
+        Ok(summary)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    result
+}
+
 #[command]
 async fn verify_hash(expected_hash: String, calculated_hashes: HashMap<String, String>) -> bool {
     for (_, hash) in calculated_hashes {
@@ -455,6 +575,8 @@ fn main() {
             scan_folder,
             save_report,
             verify_hash,
+            inspect_gpg_key,
+            verify_gpg_signature,
             check_for_updates,
             is_path_file,
             cancel_hashing,

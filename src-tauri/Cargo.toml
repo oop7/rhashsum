@@ -27,6 +27,7 @@ ahash = "0.8"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 # Windows-specific flags for faster file IO (sequential scan hint)
 windows-sys = { version = "0.52.0", features = ["Win32_Storage_FileSystem"] }
+sequoia-openpgp = "1.22.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
