@@ -23,7 +23,7 @@ use xxhash_rust::xxh3::Xxh3 as XxHash3;
 use sequoia_openpgp::{
     cert::Cert,
     parse::Parse,
-    parse::stream::{DetachedVerifierBuilder, GoodChecksum, MessageLayer, MessageStructure, VerificationHelper},
+    parse::stream::{DetachedVerifierBuilder, MessageLayer, MessageStructure, VerificationHelper},
     policy::StandardPolicy,
     KeyHandle,
 };
@@ -429,24 +429,25 @@ struct GpgVerificationHelper {
 }
 
 impl VerificationHelper for GpgVerificationHelper {
-    type Response = GpgVerificationSummary;
-
     fn get_certs(&mut self, _ids: &[KeyHandle]) -> sequoia_openpgp::Result<Vec<Cert>> {
         Ok(vec![self.cert.clone()])
     }
 
-    fn check(&mut self, structure: &MessageStructure) -> sequoia_openpgp::Result<()> {
-        for layer in structure.iter() {
+    fn check(&mut self, structure: MessageStructure) -> sequoia_openpgp::Result<()> {
+        for layer in structure.into_iter() {
             if let MessageLayer::SignatureGroup { results } = layer {
                 for result in results {
                     match result {
                         Ok(good_checksum) => {
                             self.verified = true;
-                            let message = good_checksum
-                                .signer()
-                                .map(|s| format!("Signature verified: {}", s.fingerprint()))
-                                .unwrap_or_else(|| "Signature verified".to_string());
-                            self.messages.push(message);
+                            let fingerprint = good_checksum
+                                .ka
+                                .cert()
+                                .fingerprint()
+                                .to_string();
+                            self.messages.push(format!(
+                                "Signature verified by certificate {fingerprint}"
+                            ));
                         }
                         Err(err) => {
                             self.messages.push(format!("Verification error: {err}"));
@@ -455,10 +456,17 @@ impl VerificationHelper for GpgVerificationHelper {
                 }
             }
         }
+
+        if !self.verified && self.messages.is_empty() {
+            self.messages
+                .push("No valid signatures found".to_string());
+        }
         Ok(())
     }
+}
 
-    fn finish(self, _structure: MessageStructure) -> sequoia_openpgp::Result<Self::Response> {
+impl GpgVerificationHelper {
+    fn into_summary(self) -> GpgVerificationSummary {
         let fingerprint = self.cert.fingerprint().to_string();
         let user_ids = self
             .cert
@@ -469,12 +477,12 @@ impl VerificationHelper for GpgVerificationHelper {
             })
             .collect::<Vec<_>>();
 
-        Ok(GpgVerificationSummary {
+        GpgVerificationSummary {
             is_valid: self.verified,
             fingerprint,
             user_ids,
             messages: self.messages,
-        })
+        }
     }
 }
 
@@ -518,10 +526,12 @@ async fn verify_gpg_signature(file_path: String, signature_path: String, public_
             .map_err(|e| e.to_string())?;
 
         let mut file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
-        let summary = verifier
+        verifier
             .verify_reader(&mut file)
             .map_err(|e| e.to_string())?;
-        Ok(summary)
+
+        let helper = verifier.into_helper();
+        Ok(helper.into_summary())
     })
     .await
     .map_err(|e| e.to_string())?;
