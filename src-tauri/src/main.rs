@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use tauri::command;
 use tokio::sync::Semaphore;
@@ -380,15 +379,9 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
 
 #[command]
 async fn save_report(file_path: String, data: String, format: String) -> Result<(), String> {
-    if let Some(parent) = Path::new(&file_path).parent() {
-        if !parent.as_os_str().is_empty() {
-            tokio::fs::create_dir_all(parent).await.map_err(|e| e.to_string())?;
-        }
-    }
-
     match format.as_str() {
         "json" => {
-            let mut file = tokio::fs::File::create(&file_path).await.map_err(|e| e.to_string())?;
+            let mut file = tokio::fs::File::create(file_path).await.map_err(|e| e.to_string())?;
             tokio::io::AsyncWriteExt::write_all(&mut file, data.as_bytes()).await.map_err(|e| e.to_string())?;
         }
         "csv" => {
@@ -400,7 +393,7 @@ async fn save_report(file_path: String, data: String, format: String) -> Result<
             wtr.flush().map_err(|e| e.to_string())?;
         }
         "txt" => {
-            let mut file = tokio::fs::File::create(&file_path).await.map_err(|e| e.to_string())?;
+            let mut file = tokio::fs::File::create(file_path).await.map_err(|e| e.to_string())?;
             tokio::io::AsyncWriteExt::write_all(&mut file, data.as_bytes()).await.map_err(|e| e.to_string())?;
         }
         _ => return Err("Unsupported format".to_string()),
