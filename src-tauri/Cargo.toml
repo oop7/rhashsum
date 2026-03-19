@@ -10,6 +10,7 @@ tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
 tauri = { version = "1.8", features = [ "window-all", "dialog-all", "shell-open"] }
+wry = "=0.24.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 md-5 = "0.10"
