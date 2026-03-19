@@ -17,6 +17,7 @@ Rust Hash Sum is a high-performance, cross-platform desktop application for calc
 - **Single File and Folder Scanning**: Calculate checksums for individual files or scan entire folders recursively.
 - **Drag and Drop**: Easily drag and drop files into the application to start hashing.
 - **Hash Verification**: Verify a file's integrity by comparing its checksum with a known hash.
+- **GPG Authenticity Checks**: Verify detached GPG signatures and optionally enforce an expected signing key fingerprint.
 - **Save Reports**: Export hashing results to JSON, CSV, or TXT files.
 - **Cross-Platform**: Works on Windows, macOS, and Linux.
 - **Light and Dark Mode**: Switch between light and dark themes to suit your preference.

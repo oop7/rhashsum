@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::process::Command;
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use tauri::command;
 use tokio::sync::Semaphore;
@@ -23,6 +24,17 @@ use xxhash_rust::xxh3::Xxh3 as XxHash3;
 
 struct AppState {
     cancel: Arc<AtomicBool>,
+}
+
+#[derive(serde::Serialize)]
+struct GpgVerificationResult {
+    valid_signature: bool,
+    fingerprint_match: bool,
+    signer: Option<String>,
+    fingerprint: Option<String>,
+    trust_level: Option<String>,
+    status_lines: Vec<String>,
+    message: String,
 }
 
 // ULTIMATE PERFORMANCE: BLAKE3 multithreading + optimized single-pass for others
@@ -411,6 +423,107 @@ async fn verify_hash(expected_hash: String, calculated_hashes: HashMap<String, S
     false
 }
 
+fn map_trust_status(token: &str) -> Option<String> {
+    match token {
+        "TRUST_UNDEFINED" => Some("Undefined".to_string()),
+        "TRUST_NEVER" => Some("Never".to_string()),
+        "TRUST_MARGINAL" => Some("Marginal".to_string()),
+        "TRUST_FULLY" => Some("Full".to_string()),
+        "TRUST_ULTIMATE" => Some("Ultimate".to_string()),
+        _ => None,
+    }
+}
+
+#[command]
+async fn verify_gpg_signature(file_path: String, signature_path: String, expected_fingerprint: Option<String>) -> Result<GpgVerificationResult, String> {
+    let mut command = Command::new("gpg");
+    command
+        .arg("--batch")
+        .arg("--no-tty")
+        .arg("--status-fd=1")
+        .arg("--verify")
+        .arg(&signature_path)
+        .arg(&file_path);
+
+    let output = command.output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            "GPG is not installed or not available in PATH".to_string()
+        } else {
+            e.to_string()
+        }
+    })?;
+
+    let mut status_lines = Vec::new();
+    let mut signer: Option<String> = None;
+    let mut fingerprint: Option<String> = None;
+    let mut trust_level: Option<String> = None;
+    let mut valid_signature = false;
+
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        if let Some(stripped) = line.strip_prefix("[GNUPG:]") {
+            let status = stripped.trim();
+            status_lines.push(status.to_string());
+
+            if let Some(rest) = status.strip_prefix("GOODSIG ") {
+                valid_signature = true;
+                let mut parts = rest.splitn(2, ' ');
+                let _key_id = parts.next();
+                if let Some(name) = parts.next() {
+                    signer = Some(name.trim().to_string());
+                }
+            } else if let Some(rest) = status.strip_prefix("VALIDSIG ") {
+                if let Some(fp) = rest.split_whitespace().next() {
+                    fingerprint = Some(fp.to_string());
+                }
+            } else if let Some(level) = map_trust_status(status.split_whitespace().next().unwrap_or_default()) {
+                trust_level = Some(level);
+            }
+        }
+    }
+
+    let expected_fingerprint = expected_fingerprint
+        .map(|value| value.trim().replace(' ', "").to_uppercase())
+        .filter(|value| !value.is_empty());
+
+    let actual_fingerprint_normalized = fingerprint
+        .as_ref()
+        .map(|value| value.trim().replace(' ', "").to_uppercase());
+
+    let fingerprint_match = match (&expected_fingerprint, &actual_fingerprint_normalized) {
+        (Some(expected), Some(actual)) => expected == actual,
+        (Some(_), None) => false,
+        (None, Some(_)) => true,
+        (None, None) => true,
+    };
+
+    let stderr_text = String::from_utf8_lossy(&output.stderr);
+    let success = output.status.success() && valid_signature && fingerprint_match;
+
+    let message = if success {
+        if expected_fingerprint.is_some() {
+            "Signature is valid and signing key fingerprint matches expected fingerprint".to_string()
+        } else {
+            "Signature is valid".to_string()
+        }
+    } else if !output.status.success() && !stderr_text.trim().is_empty() {
+        stderr_text.lines().next().unwrap_or("GPG verification failed").to_string()
+    } else if !valid_signature {
+        "Signature is not valid".to_string()
+    } else {
+        "Signature is valid, but signing key fingerprint does not match expected fingerprint".to_string()
+    };
+
+    Ok(GpgVerificationResult {
+        valid_signature,
+        fingerprint_match,
+        signer,
+        fingerprint,
+        trust_level,
+        status_lines,
+        message,
+    })
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct UpdateInfo {
     version: String,
@@ -455,6 +568,7 @@ fn main() {
             scan_folder,
             save_report,
             verify_hash,
+            verify_gpg_signature,
             check_for_updates,
             is_path_file,
             cancel_hashing,
