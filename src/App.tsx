@@ -559,7 +559,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   };
 
   return (
-    <Box sx={{ p: 1, maxHeight: '85vh', overflow: 'auto' }}> 
+    <Box sx={{ p: 1 }}> 
       {/* File Selection Row */}
       <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={10}>
