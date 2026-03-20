@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
-import { open, save } from '@tauri-apps/api/dialog';
+import { open as openDialog, save } from '@tauri-apps/api/dialog';
+import { open as openExternal } from '@tauri-apps/api/shell';
 import { listen } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { 
@@ -189,6 +190,15 @@ function App() {
     setAboutDialogOpen(true);
   };
 
+  const handleSponsor = async () => {
+    handleMenuClose();
+    try {
+      await openExternal('https://github.com/sponsors/oop7');
+    } catch (error) {
+      showAlert('Sponsor', `Unable to open sponsor page: ${error}`);
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -222,6 +232,7 @@ function App() {
             onClose={handleMenuClose}
           >
             <MenuItem onClick={handleCheckForUpdates}>Check for Updates</MenuItem>
+            <MenuItem onClick={handleSponsor}>Sponsor</MenuItem>
             <MenuItem onClick={handleAbout}>About</MenuItem>
           </Menu>
         </Box>
@@ -282,7 +293,8 @@ function App() {
           </Typography>
           <Typography variant="body2">
             • Author: <Link href="https://github.com/oop7" target="_blank" rel="noopener">oop7</Link><br/>
-            • Repository: <Link href="https://github.com/oop7/rhashsum" target="_blank" rel="noopener">github.com/oop7/rhashsum</Link>
+            • Repository: <Link href="https://github.com/oop7/rhashsum" target="_blank" rel="noopener">github.com/oop7/rhashsum</Link><br/>
+            • Sponsor: <Link href="https://github.com/sponsors/oop7" target="_blank" rel="noopener">github.com/sponsors/oop7</Link>
           </Typography>
 
           <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
@@ -381,7 +393,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
 
   // Handle file selection: only set the path; calculation is handled by useEffect
   const handleFileSelect = async (path?: string) => {
-    const selectedPath = path || await open({ multiple: false });
+    const selectedPath = path || await openDialog({ multiple: false });
     if (typeof selectedPath === 'string') {
       setFilePath(selectedPath);
     }
@@ -511,7 +523,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   };
 
   const handleSignatureSelect = async () => {
-    const selectedPath = await open({ multiple: false });
+    const selectedPath = await openDialog({ multiple: false });
     if (typeof selectedPath === 'string') {
       setSignaturePath(selectedPath);
     }
@@ -815,7 +827,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
   const [includeHidden, setIncludeHidden] = useState(false);
 
   const handleFolderSelect = async () => {
-    const selected = await open({
+    const selected = await openDialog({
       directory: true,
       multiple: false,
     });

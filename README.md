@@ -75,6 +75,12 @@ Contributions are welcome! If you have any ideas, suggestions, or bug reports, p
 5.  Push to the branch (`git push origin feature/your-feature`).
 6.  Open a pull request.
 
+## Support
+
+If you find this project useful, you can support development here:
+
+- GitHub Sponsors: [https://github.com/sponsors/oop7](https://github.com/sponsors/oop7)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
