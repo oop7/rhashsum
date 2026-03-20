@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { open as openDialog, save } from '@tauri-apps/api/dialog';
 import { open as openExternal } from '@tauri-apps/api/shell';
@@ -380,6 +380,8 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   const [expectedFingerprint, setExpectedFingerprint] = useState("");
   const [gpgResult, setGpgResult] = useState<GpgVerificationResult | null>(null);
   const [isVerifyingGpg, setIsVerifyingGpg] = useState(false);
+  const hashCacheRef = useRef<Record<string, Record<string, string>>>({});
+  const validatedFileRef = useRef<string>("");
 
   // Clear hash results
   const clearHashes = () => {
@@ -389,6 +391,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     setSha512("");
     setBlake3("");
     setXxhash3("");
+  };
+
+  const applyHashResults = (results: Record<string, string>) => {
+    setMd5(results.md5 || "");
+    setSha1(results.sha1 || "");
+    setSha256(results.sha256 || "");
+    setSha512(results.sha512 || "");
+    setBlake3(results.blake3 || "");
+    setXxhash3(results.xxhash3 || "");
   };
 
   // Handle file selection: only set the path; calculation is handled by useEffect
@@ -408,36 +419,51 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         .map(([k]) => k);
       if (algorithms.length === 0) return;
 
+      const cacheForFile = hashCacheRef.current[filePath] || {};
+      const missingAlgorithms = algorithms.filter((algorithm) => !cacheForFile[algorithm]);
+
+      // Instantly render any cached values for this file.
+      if (Object.keys(cacheForFile).length > 0) {
+        applyHashResults(cacheForFile);
+      } else {
+        clearHashes();
+      }
+
+      // Nothing new to compute.
+      if (missingAlgorithms.length === 0) {
+        return;
+      }
+
       setIsHashing(true);
       setProgress({ percent: 0, bytes_read: 0, total: 0 });
-      clearHashes();
 
       try {
         // Validate the dropped/selected path is a file by calling a small Rust helper command.
-        try {
-          const isFile = await invokeTauri<boolean>('is_path_file', { path: filePath });
-          if (!isFile) {
-            showAlert('Invalid selection', 'You dropped a folder into Single File mode. Please drop a single file or switch to Folder Scan.');
+        if (validatedFileRef.current !== filePath) {
+          try {
+            const isFile = await invokeTauri<boolean>('is_path_file', { path: filePath });
+            if (!isFile) {
+              showAlert('Invalid selection', 'You dropped a folder into Single File mode. Please drop a single file or switch to Folder Scan.');
+              setIsHashing(false);
+              setProgress(null);
+              return;
+            }
+            validatedFileRef.current = filePath;
+          } catch (e) {
+            console.error('Failed to validate path via backend', e);
+            showAlert('Error', 'Unable to access the selected path. Make sure the file exists and you have permission to read it.');
             setIsHashing(false);
             setProgress(null);
             return;
           }
-        } catch (e) {
-          console.error('Failed to validate path via backend', e);
-          showAlert('Error', 'Unable to access the selected path. Make sure the file exists and you have permission to read it.');
-          setIsHashing(false);
-          setProgress(null);
-          return;
         }
 
-        const checksums = await invoke("calculate_checksums", { filePath, algorithms });
+        const checksums = await invoke("calculate_checksums", { filePath, algorithms: missingAlgorithms });
         const results = checksums as Record<string, string>;
-        if (results.md5) setMd5(results.md5);
-        if (results.sha1) setSha1(results.sha1);
-        if (results.sha256) setSha256(results.sha256);
-        if (results.sha512) setSha512(results.sha512);
-        if (results.blake3) setBlake3(results.blake3);
-        if (results.xxhash3) setXxhash3(results.xxhash3);
+
+        const mergedResults = { ...cacheForFile, ...results };
+        hashCacheRef.current[filePath] = mergedResults;
+        applyHashResults(mergedResults);
       } catch (error) {
         console.error('Hash calculation failed:', error);
         showAlert('Error', 'Hash calculation failed: ' + error);
