@@ -208,6 +208,7 @@ function App() {
           <Tabs value={activeTab} onChange={handleTabChange} aria-label="basic tabs example">
             <Tab label="Single File" />
             <Tab label="Folder Scan" />
+            <Tab label="GPG Verify" />
           </Tabs>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton onClick={() => setIsDarkMode(!isDarkMode)} color="inherit">
@@ -241,6 +242,9 @@ function App() {
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
           <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} />
+        </TabPanel>
+        <TabPanel value={activeTab} index={2}>
+          <GpgVerifyTab showAlert={showAlert} />
         </TabPanel>
       </Container>
 
@@ -376,10 +380,6 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   const [expectedHash, setExpectedHash] = useState("");
   const [progress, setProgress] = useState<{ percent: number; bytes_read: number; total: number } | null>(null);
   const [isHashing, setIsHashing] = useState(false);
-  const [signaturePath, setSignaturePath] = useState("");
-  const [expectedFingerprint, setExpectedFingerprint] = useState("");
-  const [gpgResult, setGpgResult] = useState<GpgVerificationResult | null>(null);
-  const [isVerifyingGpg, setIsVerifyingGpg] = useState(false);
   const hashCacheRef = useRef<Record<string, Record<string, string>>>({});
   const validatedFileRef = useRef<string>("");
 
@@ -548,40 +548,6 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     }
   };
 
-  const handleSignatureSelect = async () => {
-    const selectedPath = await openDialog({ multiple: false });
-    if (typeof selectedPath === 'string') {
-      setSignaturePath(selectedPath);
-    }
-  };
-
-  const handleVerifyGpg = async () => {
-    if (!filePath) {
-      showAlert('GPG Verification', 'Select a file before verifying its signature.');
-      return;
-    }
-    if (!signaturePath) {
-      showAlert('GPG Verification', 'Select a detached signature file (for example .sig or .asc).');
-      return;
-    }
-
-    setIsVerifyingGpg(true);
-    setGpgResult(null);
-
-    try {
-      const result = await invoke<GpgVerificationResult>('verify_gpg_signature', {
-        filePath,
-        signaturePath,
-        expectedFingerprint: expectedFingerprint.trim() || null,
-      });
-      setGpgResult(result);
-    } catch (error) {
-      console.error('GPG verification failed:', error);
-      showAlert('GPG Verification', `GPG verification failed: ${error}`);
-    } finally {
-      setIsVerifyingGpg(false);
-    }
-  };
 
   const [copied, setCopied] = useState({ md5: false, sha1: false, sha256: false, sha512: false, blake3: false, xxhash3: false });
 
@@ -782,59 +748,123 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         <Button variant="contained" onClick={handleVerifyHash} fullWidth sx={{ mt: 1 }} size="small" disabled={isHashing}>Verify</Button>
       </Box>
 
-      {/* GPG Signature Verification */}
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="subtitle2">Verify GPG Signature:</Typography>
-        <Grid container spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-          <Grid item xs={10}>
-            <TextField
-              placeholder="Detached signature file (.sig, .asc)"
-              value={signaturePath}
-              fullWidth
-              size="small"
-              InputProps={{ readOnly: true }}
-            />
-          </Grid>
-          <Grid item xs={2}>
-            <Button variant="contained" onClick={handleSignatureSelect} fullWidth size="small" disabled={isVerifyingGpg}>Browse</Button>
-          </Grid>
-        </Grid>
-
-        <TextField
-          placeholder="Expected signing key fingerprint (optional)"
-          value={expectedFingerprint}
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedFingerprint(event.target.value)}
-          fullWidth
-          size="small"
-          sx={{ mt: 1 }}
-        />
-
-        <Button
-          variant="contained"
-          onClick={handleVerifyGpg}
-          fullWidth
-          sx={{ mt: 1 }}
-          size="small"
-          disabled={isVerifyingGpg || isHashing}
-        >
-          {isVerifyingGpg ? 'Verifying Signature...' : 'Verify GPG Signature'}
-        </Button>
-
-        {gpgResult && (
-          <Box sx={{ mt: 1, p: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-            <Typography variant="body2" color={gpgResult.valid_signature && gpgResult.fingerprint_match ? 'success.main' : 'error.main'}>
-              {gpgResult.message}
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>Signature valid: {gpgResult.valid_signature ? 'Yes' : 'No'}</Typography>
-            <Typography variant="body2">Fingerprint match: {gpgResult.fingerprint_match ? 'Yes' : 'No'}</Typography>
-            {gpgResult.signer && <Typography variant="body2">Signer: {gpgResult.signer}</Typography>}
-            {gpgResult.fingerprint && <Typography variant="body2">Fingerprint: {gpgResult.fingerprint}</Typography>}
-            {gpgResult.trust_level && <Typography variant="body2">Trust level: {gpgResult.trust_level}</Typography>}
-          </Box>
-        )}
-      </Box>
-
       <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 1 }} size="small">Save Report</Button>
+    </Box>
+  );
+};
+
+interface GpgVerifyTabProps {
+  showAlert: (title: string, message: string) => void;
+}
+
+const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
+  const [filePath, setFilePath] = useState("");
+  const [signaturePath, setSignaturePath] = useState("");
+  const [expectedFingerprint, setExpectedFingerprint] = useState("");
+  const [gpgResult, setGpgResult] = useState<GpgVerificationResult | null>(null);
+  const [isVerifyingGpg, setIsVerifyingGpg] = useState(false);
+
+  const handleFileSelect = async () => {
+    const selectedPath = await openDialog({ multiple: false });
+    if (typeof selectedPath === 'string') {
+      setFilePath(selectedPath);
+    }
+  };
+
+  const handleSignatureSelect = async () => {
+    const selectedPath = await openDialog({ multiple: false });
+    if (typeof selectedPath === 'string') {
+      setSignaturePath(selectedPath);
+    }
+  };
+
+  const handleVerifyGpg = async () => {
+    if (!filePath) {
+      showAlert('GPG Verification', 'Select a file before verifying its signature.');
+      return;
+    }
+    if (!signaturePath) {
+      showAlert('GPG Verification', 'Select a detached signature file (for example .sig or .asc).');
+      return;
+    }
+
+    setIsVerifyingGpg(true);
+    setGpgResult(null);
+
+    try {
+      const result = await invoke<GpgVerificationResult>('verify_gpg_signature', {
+        filePath,
+        signaturePath,
+        expectedFingerprint: expectedFingerprint.trim() || null,
+      });
+      setGpgResult(result);
+    } catch (error) {
+      console.error('GPG verification failed:', error);
+      showAlert('GPG Verification', `GPG verification failed: ${error}`);
+    } finally {
+      setIsVerifyingGpg(false);
+    }
+  };
+
+  return (
+    <Box sx={{ p: 1 }}>
+      <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
+        <Grid item xs={10}>
+          <TextField label="File" value={filePath} fullWidth size="small" InputProps={{ readOnly: true }} />
+        </Grid>
+        <Grid item xs={2}>
+          <Button variant="contained" onClick={handleFileSelect} fullWidth size="small" disabled={isVerifyingGpg}>Browse</Button>
+        </Grid>
+      </Grid>
+
+      <Typography variant="subtitle2">Detached Signature File:</Typography>
+      <Grid container spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+        <Grid item xs={10}>
+          <TextField
+            placeholder="Detached signature file (.sig, .asc)"
+            value={signaturePath}
+            fullWidth
+            size="small"
+            InputProps={{ readOnly: true }}
+          />
+        </Grid>
+        <Grid item xs={2}>
+          <Button variant="contained" onClick={handleSignatureSelect} fullWidth size="small" disabled={isVerifyingGpg}>Browse</Button>
+        </Grid>
+      </Grid>
+
+      <TextField
+        label="Expected signing key fingerprint (optional)"
+        value={expectedFingerprint}
+        onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedFingerprint(event.target.value)}
+        fullWidth
+        size="small"
+        sx={{ mt: 2 }}
+      />
+
+      <Button
+        variant="contained"
+        onClick={handleVerifyGpg}
+        fullWidth
+        sx={{ mt: 2 }}
+        size="small"
+        disabled={isVerifyingGpg}
+      >
+        {isVerifyingGpg ? 'Verifying Signature...' : 'Verify GPG Signature'}
+      </Button>
+
+      {gpgResult && (
+        <Box sx={{ mt: 2, p: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+          <Typography variant="body2" color={gpgResult.valid_signature && gpgResult.fingerprint_match ? 'success.main' : 'error.main'}>
+            {gpgResult.message}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>Signature valid: {gpgResult.valid_signature ? 'Yes' : 'No'}</Typography>
+          <Typography variant="body2">Fingerprint match: {gpgResult.fingerprint_match ? 'Yes' : 'No'}</Typography>
+          {gpgResult.signer && <Typography variant="body2">Signer: {gpgResult.signer}</Typography>}
+          {gpgResult.fingerprint && <Typography variant="body2">Fingerprint: {gpgResult.fingerprint}</Typography>}
+          {gpgResult.trust_level && <Typography variant="body2">Trust level: {gpgResult.trust_level}</Typography>}
+        </Box>
+      )}
     </Box>
   );
 };
