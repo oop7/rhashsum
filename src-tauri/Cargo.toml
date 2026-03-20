@@ -33,6 +33,9 @@ windows-sys = { version = "0.52.0", features = ["Win32_Storage_FileSystem"] }
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
 
+[patch.crates-io]
+wry = { path = "vendor/wry" }
+
 [profile.release]
 opt-level = 3
 lto = "fat" 
