@@ -415,8 +415,11 @@ async fn save_report(file_path: String, data: String, format: String) -> Result<
 
 #[command]
 async fn verify_hash(expected_hash: String, calculated_hashes: HashMap<String, String>) -> bool {
+    if expected_hash.trim().is_empty() {
+        return false;
+    }
     for (_, hash) in calculated_hashes {
-        if expected_hash == hash {
+        if expected_hash == hash && !hash.trim().is_empty() {
             return true;
         }
     }

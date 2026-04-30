@@ -534,6 +534,10 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   };
 
   const handleVerifyHash = async () => {
+    if (!filePath || !expectedHash.trim()) {
+      showAlert("Verification", "Please select a file and enter an expected hash.");
+      return;
+    }
     const calculatedHashes = {
       md5: md5,
       sha1: sha1,
