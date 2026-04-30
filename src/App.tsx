@@ -890,6 +890,26 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [progress, setProgress] = useState<{ completed: number; total: number } | null>(null);
+
+  useEffect(() => {
+    let unlisten: any;
+    (async () => {
+      unlisten = await listen('folder-scan-progress', (event: any) => {
+        const payload = event.payload as any;
+        setProgress({ 
+          completed: payload.completed || 0, 
+          total: payload.total || 0 
+        });
+      });
+    })();
+
+    return () => {
+      if (unlisten && typeof unlisten.then === 'function') {
+        unlisten.then((f: any) => f());
+      }
+    };
+  }, []);
 
   const handleFolderSelect = async () => {
     const selected = await openDialog({
@@ -911,6 +931,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
     }
     
     setIsScanning(true);
+    setProgress({ completed: 0, total: 100 }); // Indeterminate at first, total won't be 100 actually unless 100 files, but we update soon
     setFiles([]);
     try {
       const scannedFiles = await invoke("scan_folder", { 
@@ -924,6 +945,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
       if (e !== "Cancelled") showAlert('Error', `Folder scan failed: ${e}`);
     } finally {
       setIsScanning(false);
+      setProgress(null);
     }
   };
 
@@ -1014,7 +1036,14 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
             <Button variant="outlined" color="error" onClick={() => invoke('cancel_hashing')}>Cancel</Button>
           )}
         </Box>
-        {isScanning && <LinearProgress sx={{ mt: 2 }} />}
+        {isScanning && progress && (
+          <Box sx={{ mt: 2 }}>
+            <LinearProgress variant={progress.total > 0 ? "determinate" : "indeterminate"} value={progress.total > 0 ? (progress.completed / progress.total) * 100 : 0} />
+            <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+              {progress.total > 0 ? `${progress.completed} / ${progress.total} files completed (${Math.round((progress.completed / progress.total) * 100)}%)` : 'Scanning...'}
+            </Typography>
+          </Box>
+        )}
 
         <TableContainer component={Paper} sx={{ mt: 2 }}>
             <Table>

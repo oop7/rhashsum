@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}};
 use tauri::command;
 use tokio::sync::Semaphore;
 #[cfg(not(target_os = "windows"))]
@@ -341,6 +341,8 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
     // Process files concurrently with a semaphore to limit parallelism
     let sem = Arc::new(Semaphore::new(8)); // Increased concurrency from 4 to 8
     let mut handles = Vec::new();
+    let total_files = files_to_process.len();
+    let completed_files = Arc::new(AtomicUsize::new(0));
 
     for file_path in files_to_process {
         if state.cancel.load(Ordering::SeqCst) {
@@ -351,14 +353,23 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
         let cancel_flag = state.cancel.clone();
         let file_path_clone = file_path.clone();
         let algorithms_clone = algorithms.clone(); // Clone algorithms for each task
+        let completed_clone = completed_files.clone();
 
         let handle = tokio::spawn(async move {
             // permit is dropped at end of scope to release semaphore
             let _permit = permit;
-            match do_calculate_checksums(win, cancel_flag.clone(), file_path_clone.clone(), algorithms_clone).await {
+            let result = match do_calculate_checksums(win.clone(), cancel_flag.clone(), file_path_clone.clone(), algorithms_clone).await {
                 Ok(checksums) => Ok((file_path_clone, checksums)),
                 Err(e) => Err((file_path_clone, e)),
-            }
+            };
+            
+            let current = completed_clone.fetch_add(1, Ordering::SeqCst) + 1;
+            let _ = win.emit("folder-scan-progress", serde_json::json!({
+                "completed": current,
+                "total": total_files
+            }));
+            
+            result
         });
 
         handles.push(handle);
