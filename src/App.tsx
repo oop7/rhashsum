@@ -466,7 +466,9 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         applyHashResults(mergedResults);
       } catch (error) {
         console.error('Hash calculation failed:', error);
-        showAlert('Error', 'Hash calculation failed: ' + error);
+        if (error !== "Cancelled") {
+          showAlert('Error', 'Hash calculation failed: ' + error);
+        }
       } finally {
         setIsHashing(false);
         setProgress(null);
@@ -482,11 +484,13 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     (async () => {
       unlisten = await listen('hash-progress', (event: any) => {
         const payload = event.payload as any;
-        setProgress({ 
-          percent: payload.percent || 0, 
-          bytes_read: payload.bytes_read || 0, 
-          total: payload.total || 0 
-        });
+        if (payload.file === filePath) {
+          setProgress({ 
+            percent: payload.percent || 0, 
+            bytes_read: payload.bytes_read || 0, 
+            total: payload.total || 0 
+          });
+        }
       });
     })();
 
@@ -495,7 +499,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         unlisten.then((f: any) => f());
       }
     };
-  }, []);
+  }, [filePath]);
 
   const handleSaveReport = async () => {
     if (!filePath) {
@@ -885,6 +889,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
   const [files, setFiles] = useState<any[]>([]);
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [includeHidden, setIncludeHidden] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   const handleFolderSelect = async () => {
     const selected = await openDialog({
@@ -905,13 +910,21 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
       return;
     }
     
-    const scannedFiles = await invoke("scan_folder", { 
-      folderPath, 
-      includeSubfolders, 
-      includeHidden,
-      algorithms 
-    });
-    setFiles(scannedFiles as any[]);
+    setIsScanning(true);
+    setFiles([]);
+    try {
+      const scannedFiles = await invoke("scan_folder", { 
+        folderPath, 
+        includeSubfolders, 
+        includeHidden,
+        algorithms 
+      });
+      setFiles(scannedFiles as any[]);
+    } catch (e) {
+      if (e !== "Cancelled") showAlert('Error', `Folder scan failed: ${e}`);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleSaveReport = async () => {
@@ -995,7 +1008,13 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
             <FormControlLabel control={<Checkbox checked={includeHidden} onChange={() => setIncludeHidden(!includeHidden)} />} label="Include Hidden Files" />
         </Box>
 
-        <Button variant="contained" onClick={handleScan} fullWidth sx={{ mt: 2 }}>Scan Folder</Button>
+        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+          <Button variant="contained" onClick={handleScan} fullWidth disabled={isScanning}>Scan Folder</Button>
+          {isScanning && (
+            <Button variant="outlined" color="error" onClick={() => invoke('cancel_hashing')}>Cancel</Button>
+          )}
+        </Box>
+        {isScanning && <LinearProgress sx={{ mt: 2 }} />}
 
         <TableContainer component={Paper} sx={{ mt: 2 }}>
             <Table>

@@ -312,11 +312,16 @@ struct FileData {
 
 #[command]
 async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_path: String, include_subfolders: bool, include_hidden: bool, algorithms: Vec<String>) -> Result<Vec<FileData>, String> {
+    state.cancel.store(false, Ordering::SeqCst);
+    
     // First, collect files to process
     let mut files_to_process: Vec<String> = Vec::new();
     let mut folders_to_scan = vec![folder_path];
 
     while let Some(folder) = folders_to_scan.pop() {
+        if state.cancel.load(Ordering::SeqCst) {
+            break;
+        }
         let mut entries = tokio::fs::read_dir(folder).await.map_err(|e| e.to_string())?;
 
         while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
@@ -338,6 +343,9 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
     let mut handles = Vec::new();
 
     for file_path in files_to_process {
+        if state.cancel.load(Ordering::SeqCst) {
+            break;
+        }
         let permit = sem.clone().acquire_owned().await.unwrap();
         let win = window.clone();
         let cancel_flag = state.cancel.clone();
