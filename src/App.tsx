@@ -885,6 +885,53 @@ interface FolderScanTabProps {
     showAlert: (title: string, message: string) => void;
 }
 
+const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgorithms: any }) => {
+  const [copied, setCopied] = useState({ md5: false, sha1: false, sha256: false, sha512: false, blake3: false, xxhash3: false });
+
+  const handleCopy = async (key: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3' | 'xxhash3', value: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setCopied(prev => ({ ...prev, [key]: false })), 2000);
+    } catch (e) {
+      console.error('Failed to copy text: ', e);
+    }
+  };
+
+  const renderHashRow = (label: string, key: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3' | 'xxhash3') => {
+    if (!selectedAlgorithms[key]) return null;
+    return (
+      <Grid container spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
+        <Grid item xs={2}>
+          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>{label}:</Typography>
+        </Grid>
+        <Grid item xs={9}>
+          <TextField value={file[key] || ''} fullWidth size="small" InputProps={{ readOnly: true, sx: { fontSize: '0.75rem', padding: '2px' } }} variant="standard" />
+        </Grid>
+        <Grid item xs={1}>
+          <IconButton color={copied[key] ? 'success' : 'default'} onClick={() => handleCopy(key, file[key] || '')} aria-label={`copy ${key}`} size="small" sx={{ padding: '2px' }}>
+            {copied[key] ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+          </IconButton>
+        </Grid>
+      </Grid>
+    );
+  };
+
+  return (
+    <Paper sx={{ p: 1.5, mb: 1.5 }} elevation={1}>
+      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{file.name}</Typography>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1, wordBreak: 'break-all' }}>{file.path}</Typography>
+      {renderHashRow('MD5', 'md5')}
+      {renderHashRow('SHA-1', 'sha1')}
+      {renderHashRow('SHA-256', 'sha256')}
+      {renderHashRow('SHA-512', 'sha512')}
+      {renderHashRow('BLAKE3', 'blake3')}
+      {renderHashRow('XXHash3', 'xxhash3')}
+    </Paper>
+  );
+};
+
 const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAlgorithmChange, showAlert }: FolderScanTabProps) => {
   const [files, setFiles] = useState<any[]>([]);
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
@@ -1045,36 +1092,12 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
           </Box>
         )}
 
-        <TableContainer component={Paper} sx={{ mt: 2 }}>
-            <Table>
-                <TableHead>
-                    <TableRow>
-                        <TableCell>File Name</TableCell>
-                        <TableCell>Path</TableCell>
-                        {selectedAlgorithms.md5 && <TableCell>MD5</TableCell>}
-                        {selectedAlgorithms.sha1 && <TableCell>SHA-1</TableCell>}
-                        {selectedAlgorithms.sha256 && <TableCell>SHA-256</TableCell>}
-                        {selectedAlgorithms.sha512 && <TableCell>SHA-512</TableCell>}
-                        {selectedAlgorithms.blake3 && <TableCell>BLAKE3</TableCell>}
-                        {selectedAlgorithms.xxhash3 && <TableCell>XXHash3</TableCell>}
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {files.map((file, index) => (
-                        <TableRow key={index}>
-                            <TableCell>{file.name}</TableCell>
-                            <TableCell>{file.path}</TableCell>
-                            {selectedAlgorithms.md5 && <TableCell>{file.md5 || ''}</TableCell>}
-                            {selectedAlgorithms.sha1 && <TableCell>{file.sha1 || ''}</TableCell>}
-                            {selectedAlgorithms.sha256 && <TableCell>{file.sha256 || ''}</TableCell>}
-                            {selectedAlgorithms.sha512 && <TableCell>{file.sha512 || ''}</TableCell>}
-                            {selectedAlgorithms.blake3 && <TableCell>{file.blake3 || ''}</TableCell>}
-                            {selectedAlgorithms.xxhash3 && <TableCell>{file.xxhash3 || ''}</TableCell>}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </TableContainer>
+        <Box sx={{ mt: 3 }}>
+          {files.map((file, index) => (
+             <FileResultItem key={index} file={file} selectedAlgorithms={selectedAlgorithms} />
+          ))}
+        </Box>
+
         <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 2 }}>Save Folder Results</Button>
     </Box>
   );
