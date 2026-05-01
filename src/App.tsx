@@ -503,27 +503,35 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
 
     const targetPath = await save({
       title: 'Save File Hash Report',
-      defaultPath: 'hash-report.json',
-      filters: [{ name: 'JSON', extensions: ['json'] }],
+      defaultPath: 'hash-report.csv',
+      filters: [
+        { name: 'CSV', extensions: ['csv'] },
+        { name: 'JSON', extensions: ['json'] }
+      ],
     });
 
     if (!targetPath || targetPath.length === 0) {
       return;
     }
 
-    const reportData = {
-      File: filePath,
-      MD5: md5,
-      SHA1: sha1,
-      SHA256: sha256,
-      SHA512: sha512,
-      BLAKE3: blake3,
-      XXHash3: xxhash3,
-    };
+    const format = targetPath.endsWith('.json') ? 'json' : 'csv';
+
+    const reportData = [{
+      name: filePath.split(/[/\\]/).pop() || '',
+      path: filePath,
+      md5: md5 || '',
+      sha1: sha1 || '',
+      sha256: sha256 || '',
+      sha512: sha512 || '',
+      blake3: blake3 || '',
+      xxhash3: xxhash3 || '',
+    }];
 
     try {
-      const jsonData = JSON.stringify(reportData, null, 2);
-      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      const dataToSave = format === 'json' ? 
+        JSON.stringify(reportData[0], null, 2) : // keep original format for JSON (single object)
+        JSON.stringify(reportData);              // use array for CSV deserialization
+      await invoke('save_report', { filePath: targetPath, data: dataToSave, format: format });
       showAlert('Save Report', `Report saved to ${targetPath}`);
     } catch (error) {
       console.error('Failed to save report', error);
@@ -998,8 +1006,11 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 
     const targetPath = await save({
       title: 'Save Folder Hash Results',
-      defaultPath: 'folder-hash-results.json',
-      filters: [{ name: 'JSON', extensions: ['json'] }],
+      defaultPath: 'folder-hash-results.csv',
+      filters: [
+        { name: 'CSV', extensions: ['csv'] },
+        { name: 'JSON', extensions: ['json'] }
+      ],
     });
 
     if (!targetPath || targetPath.length === 0) {
@@ -1007,8 +1018,9 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
     }
 
     try {
+      const format = targetPath.endsWith('.json') ? 'json' : 'csv';
       const jsonData = JSON.stringify(files, null, 2);
-      await invoke('save_report', { filePath: targetPath, data: jsonData, format: 'json' });
+      await invoke('save_report', { filePath: targetPath, data: jsonData, format });
       showAlert('Save Folder Results', `Results saved to ${targetPath}`);
     } catch (error) {
       console.error('Failed to save folder results', error);
