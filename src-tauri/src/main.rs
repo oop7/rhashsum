@@ -302,11 +302,17 @@ fn greet(name: &str) -> String {
 struct FileData {
     name: String,
     path: String,
+    #[serde(default)]
     md5: String,
+    #[serde(default)]
     sha1: String,
+    #[serde(default)]
     sha256: String,
+    #[serde(default)]
     sha512: String,
+    #[serde(default)]
     blake3: String,
+    #[serde(default)]
     xxhash3: String,
 }
 
@@ -417,9 +423,40 @@ async fn save_report(file_path: String, data: String, format: String) -> Result<
         }
         "csv" => {
             let mut wtr = csv::Writer::from_path(&file_path).map_err(|e| e.to_string())?;
-            let records: Vec<FileData> = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-            for record in records {
-                wtr.serialize(record).map_err(|e| e.to_string())?;
+            let records: Vec<serde_json::Map<String, serde_json::Value>> = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+            
+            if !records.is_empty() {
+                // Collect all columns that actually exist across records
+                let mut columns: Vec<String> = vec!["name".to_string(), "path".to_string()];
+                
+                // Collect other keys
+                for record in &records {
+                    for key in record.keys() {
+                        if key != "name" && key != "path" && !columns.contains(key) {
+                            columns.push(key.clone());
+                        }
+                    }
+                }
+                
+                // Write header
+                wtr.write_record(&columns).map_err(|e| e.to_string())?;
+                
+                // Write data
+                for record in records {
+                    let mut row = Vec::new();
+                    for col in &columns {
+                        if let Some(val) = record.get(col) {
+                            if let Some(s) = val.as_str() {
+                                row.push(s.to_string());
+                            } else {
+                                row.push(val.to_string());
+                            }
+                        } else {
+                            row.push("".to_string());
+                        }
+                    }
+                    wtr.write_record(&row).map_err(|e| e.to_string())?;
+                }
             }
             wtr.flush().map_err(|e| e.to_string())?;
         }

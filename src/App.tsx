@@ -78,6 +78,14 @@ function App() {
   const [folderPath, setFolderPath] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [excludeEmptyFields, setExcludeEmptyFields] = useState(() => {
+    return localStorage.getItem('exclude-empty-fields') !== 'false';
+  });
+
+  // Save changes to exclude empty fields
+  useEffect(() => {
+    localStorage.setItem('exclude-empty-fields', String(excludeEmptyFields));
+  }, [excludeEmptyFields]);
 
   // Dialog states
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
@@ -232,10 +240,10 @@ function App() {
           </Menu>
         </Box>
         <TabPanel value={activeTab} index={0}>
-          <SingleFileTab filePath={filePath} setFilePath={setFilePath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} />
+          <SingleFileTab filePath={filePath} setFilePath={setFilePath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} />
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
-          <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} />
+          <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
           <GpgVerifyTab showAlert={showAlert} />
@@ -352,6 +360,8 @@ interface SingleFileTabProps {
     selectedAlgorithms: { [key: string]: boolean };
     handleAlgorithmChange: (algorithm: string, checked: boolean) => void;
     showAlert: (title: string, message: string) => void;
+    excludeEmptyFields: boolean;
+    setExcludeEmptyFields: (value: boolean) => void;
 }
 
 interface GpgVerificationResult {
@@ -364,7 +374,7 @@ interface GpgVerificationResult {
   message: string;
 }
 
-const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgorithmChange, showAlert }: SingleFileTabProps) => {
+const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields }: SingleFileTabProps) => {
   const [md5, setMd5] = useState("");
   const [sha1, setSha1] = useState("");
   const [sha256, setSha256] = useState("");
@@ -516,7 +526,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
 
     const format = targetPath.endsWith('.json') ? 'json' : 'csv';
 
-    const reportData = [{
+    let reportItem: any = {
       name: filePath.split(/[/\\]/).pop() || '',
       path: filePath,
       md5: md5 || '',
@@ -525,7 +535,13 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       sha512: sha512 || '',
       blake3: blake3 || '',
       xxhash3: xxhash3 || '',
-    }];
+    };
+
+    if (excludeEmptyFields) {
+      reportItem = Object.fromEntries(Object.entries(reportItem).filter(([_, v]) => v !== ''));
+    }
+
+    const reportData = [reportItem];
 
     try {
       const dataToSave = format === 'json' ? 
@@ -758,6 +774,10 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         <Button variant="contained" onClick={handleVerifyHash} fullWidth sx={{ mt: 1 }} size="small" disabled={isHashing}>Verify</Button>
       </Box>
 
+      <FormControlLabel
+        control={<Checkbox size="small" checked={excludeEmptyFields} onChange={(e) => setExcludeEmptyFields(e.target.checked)} />}
+        label={<Typography variant="body2">Exclude empty fields from report</Typography>}
+      />
       <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 1 }} size="small">Save Report</Button>
     </Box>
   );
@@ -885,6 +905,8 @@ interface FolderScanTabProps {
     selectedAlgorithms: { [key: string]: boolean };
     handleAlgorithmChange: (algorithm: string, checked: boolean) => void;
     showAlert: (title: string, message: string) => void;
+    excludeEmptyFields: boolean;
+    setExcludeEmptyFields: (value: boolean) => void;
 }
 
 const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgorithms: any }) => {
@@ -934,7 +956,7 @@ const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgor
   );
 };
 
-const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAlgorithmChange, showAlert }: FolderScanTabProps) => {
+const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields }: FolderScanTabProps) => {
   const [files, setFiles] = useState<any[]>([]);
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [includeHidden, setIncludeHidden] = useState(false);
@@ -1019,7 +1041,13 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 
     try {
       const format = targetPath.endsWith('.json') ? 'json' : 'csv';
-      const jsonData = JSON.stringify(files, null, 2);
+      
+      let reportData = files;
+      if (excludeEmptyFields) {
+        reportData = files.map(file => Object.fromEntries(Object.entries(file).filter(([_, v]) => v !== '')));
+      }
+
+      const jsonData = JSON.stringify(reportData, null, 2);
       await invoke('save_report', { filePath: targetPath, data: jsonData, format });
       showAlert('Save Folder Results', `Results saved to ${targetPath}`);
     } catch (error) {
@@ -1104,6 +1132,10 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
           ))}
         </Box>
 
+        <FormControlLabel
+          control={<Checkbox size="small" checked={excludeEmptyFields} onChange={(e) => setExcludeEmptyFields(e.target.checked)} />}
+          label={<Typography variant="body2">Exclude empty fields from report</Typography>}
+        />
         <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 2 }}>Save Folder Results</Button>
     </Box>
   );
