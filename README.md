@@ -6,7 +6,7 @@ Rust Hash Sum is a high-performance, cross-platform desktop application for calc
 
 ## Features
 
-- **High-Performance Hashing**: The Rust backend is optimized for speed, using memory-mapped files and multi-threading for large files.
+- **High-Performance Hashing**: The Rust backend is optimized for speed, using memory-mapped files and up to 8 concurrent worker threads for rapid processing of large files and directories.
 - **Multiple Algorithms**: Supports a wide range of hashing algorithms:
   - MD5
   - SHA-1
@@ -14,13 +14,15 @@ Rust Hash Sum is a high-performance, cross-platform desktop application for calc
   - SHA-512
   - BLAKE3 (multi-threaded)
   - xxHash3
-- **Single File and Folder Scanning**: Calculate checksums for individual files or scan entire folders recursively.
-- **Drag and Drop**: Easily drag and drop files into the application to start hashing.
-- **Hash Verification**: Verify a file's integrity by comparing its checksum with a known hash.
-- **GPG Authenticity Checks**: Verify detached GPG signatures and optionally enforce an expected signing key fingerprint.
-- **Save Reports**: Export hashing results to JSON, CSV, or TXT files.
-- **Cross-Platform**: Works on Windows, macOS, and Linux.
-- **Light and Dark Mode**: Switch between light and dark themes to suit your preference.
+- **Advanced Folder Scanning**: Recursively scan entire folders with real-time progress tracking, file counters, and the ability to cancel ongoing operations.
+- **Improved Result Visualization**: Folder scan results are rendered as interactive cards with per-algorithm copy buttons for quick access.
+- **Drag and Drop**: Easily drag and drop files into the application to start hashing immediately.
+- **Hash Verification**: Verify a file's integrity with strict input validation and instant comparison against known hashes.
+- **GPG Authenticity Checks**: Dedicated tab for verifying detached GPG signatures with fingerprint validation.
+- **Enhanced Save Reports**: Export results to JSON or highly customizable CSV files (toggle headers, exclude empty fields).
+- **Persistent Window State**: Automatically remembers your window size and position between sessions for a seamless experience.
+- **Cross-Platform**: Native performance on Windows, macOS, and Linux.
+- **Light and Dark Mode**: Fully responsive theme support.
 
 ## Technologies Used
 
