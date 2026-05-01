@@ -4,6 +4,7 @@ import { open as openDialog, save } from '@tauri-apps/api/dialog';
 import { open as openExternal } from '@tauri-apps/api/shell';
 import { listen } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
+import { getVersion } from '@tauri-apps/api/app';
 import { 
   ThemeProvider, 
   createTheme, 
@@ -78,6 +79,12 @@ function App() {
   const [folderPath, setFolderPath] = useState("");
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null); 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(console.error);
+  }, []);
+
   const [excludeEmptyFields, setExcludeEmptyFields] = useState(() => {
     return localStorage.getItem('exclude-empty-fields') !== 'false';
   });
@@ -251,64 +258,23 @@ function App() {
       </Container>
 
       {/* About Dialog */}
-      <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={aboutDialogOpen} onClose={() => setAboutDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ textAlign: 'center' }}>
-          🔐 Rust Hash Sum
+          🔐 Rust Hash Sum {appVersion && `v${appVersion}`}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="h6" gutterBottom>
-            🚀 High-Performance Hash Calculator
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            Built with Tauri + Rust + React
-          </Typography>
-
-          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
-            📋 Supported Algorithms:
-          </Typography>
-          <Typography variant="body2">
-            • MD5, SHA-1, SHA-256, SHA-512<br/>
-            • BLAKE3 (Ultra-fast, multithreaded)<br/>
-            • XXHash3 (Extremely fast checksum)
-          </Typography>
-
-          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
-            ✨ Features:
-          </Typography>
-          <Typography variant="body2">
-            • Optimized for large files (5GB+ support)<br/>
-            • Multithreaded BLAKE3 + XXHash3 engines<br/>
-            • Memory-mapped file access for streaming<br/>
-            • Persistent algorithm & theme preferences<br/>
-            • Single file & recursive folder hashing<br/>
-            • Hash verification & exportable reports
-          </Typography>
-
-          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
-            💻 Technology Stack:
-          </Typography>
-          <Typography variant="body2">
-            • Backend: Rust with the Tauri framework<br/>
-            • Frontend: React with TypeScript<br/>
-            • UI: Material-UI components<br/>
-            • Performance: BLAKE3 acceleration + memory mapping
-          </Typography>
-
-          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
-            👥 Author & Source:
-          </Typography>
-          <Typography variant="body2">
+          <Typography variant="body2" sx={{ mt: 1 }}>
             • Author: <Link href="https://github.com/oop7" target="_blank" rel="noopener">oop7</Link><br/>
             • Repository: <Link href="https://github.com/oop7/rhashsum" target="_blank" rel="noopener">github.com/oop7/rhashsum</Link><br/>
             • Sponsor: <Link href="https://github.com/sponsors/oop7" target="_blank" rel="noopener">github.com/sponsors/oop7</Link>
           </Typography>
 
-          <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
+          <Typography variant="body2" sx={{ mt: 3, fontStyle: 'italic', textAlign: 'center' }}>
             🛠️ Crafted for maximum speed, reliability, and developer ergonomics
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAboutDialogOpen(false)} variant="contained">
+          <Button onClick={() => setAboutDialogOpen(false)} variant="contained" size="small">
             Close
           </Button>
         </DialogActions>
