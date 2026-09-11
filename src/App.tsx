@@ -1,7 +1,6 @@
 import { Fragment, useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { open as openDialog, save } from '@tauri-apps/api/dialog';
-import { open as openExternal } from '@tauri-apps/api/shell';
 import { listen } from '@tauri-apps/api/event';
 import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import { getVersion } from '@tauri-apps/api/app';
@@ -109,6 +108,7 @@ function App() {
 
   // Dialog states
   const [aboutDialogOpen, setAboutDialogOpen] = useState(false);
+  const [sponsorDialogOpen, setSponsorDialogOpen] = useState(false);
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
@@ -224,11 +224,7 @@ function App() {
 
   const handleSponsor = async () => {
     handleMenuClose();
-    try {
-      await openExternal('https://github.com/sponsors/oop7');
-    } catch (error) {
-      showAlert('Sponsor', `Unable to open sponsor page: ${error}`);
-    }
+    setSponsorDialogOpen(true);
   };
 
   return (
@@ -310,6 +306,26 @@ function App() {
         <DialogActions>
           <Button onClick={() => setAboutDialogOpen(false)} variant="contained" size="small">
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={sponsorDialogOpen} onClose={() => setSponsorDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('supportDevelopment')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {t('githubSponsors')}: <Link href="https://github.com/sponsors/oop7" target="_blank" rel="noopener">github.com/sponsors/oop7</Link>
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {t('buyMeACoffee')}: <Link href="https://www.buymeacoffee.com/oop7" target="_blank" rel="noopener">buymeacoffee.com/oop7</Link>
+          </Typography>
+          <Typography variant="body2">
+            {t('directBankTransfer')}: {t('contactByEmail')} <Link href="mailto:oop7_support@proton.me">oop7_support@proton.me</Link>
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSponsorDialogOpen(false)} variant="contained" size="small">
+            {t('close')}
           </Button>
         </DialogActions>
       </Dialog>

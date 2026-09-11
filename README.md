@@ -89,6 +89,8 @@ Contributions are welcome! If you have any ideas, suggestions, or bug reports, p
 If you find this project useful, you can support development here:
 
 - GitHub Sponsors: [https://github.com/sponsors/oop7](https://github.com/sponsors/oop7)
+- Buy Me a Coffee: [https://www.buymeacoffee.com/oop7](https://www.buymeacoffee.com/oop7)
+- Direct bank transfer / SWIFT: Contact me via email at [`oop7_support@proton.me`](mailto:oop7_support@proton.me)
 
 ## License
 
