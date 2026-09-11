@@ -624,10 +624,12 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       sha3_512: sha3_512,
       blake2b: blake2b,
       blake2s: blake2s,
+      blake3: blake3,
       crc32: crc32,
       crc64: crc64,
+      xxhash3: xxhash3,
     };
-    const isMatch = await invoke("verify_hash", { expectedHash, calculatedHashes });
+    const isMatch = await invoke("verify_hash", { expectedHash: expectedHash.trim(), calculatedHashes });
     if (isMatch) {
       showAlert(t('verification'), t('hashMatches'), 'success');
     } else {
