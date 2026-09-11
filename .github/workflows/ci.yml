@@ -57,5 +57,7 @@ jobs:
         with:
           workspaces: |
             src-tauri
+      - name: Update Cargo lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
       - name: Cargo build (no bundle)
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked

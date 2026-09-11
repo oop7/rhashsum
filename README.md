@@ -11,8 +11,15 @@ Rust Hash Sum is a high-performance, cross-platform desktop application for calc
   - MD5
   - SHA-1
   - SHA-256
+    - SHA-384
   - SHA-512
+    - SHA3-256
+    - SHA3-512
+    - BLAKE2b
+    - BLAKE2s
   - BLAKE3 (multi-threaded)
+    - CRC32
+    - CRC64-ECMA
   - xxHash3
 - **Advanced Folder Scanning**: Recursively scan entire folders with real-time progress tracking, file counters, and the ability to cancel ongoing operations.
 - **Improved Result Visualization**: Folder scan results are rendered as interactive cards with per-algorithm copy buttons for quick access.

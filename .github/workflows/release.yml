@@ -47,6 +47,8 @@ jobs:
         with:
           workspaces: |
             src-tauri
+      - name: Update Cargo lockfile
+        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
       - name: Install Windows deps (NSIS & WiX)
         if: runner.os == 'Windows'
         run: choco install -y nsis wixtoolset

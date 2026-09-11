@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/tauri";
 import { open as openDialog, save } from '@tauri-apps/api/dialog';
 import { open as openExternal } from '@tauri-apps/api/shell';
@@ -36,6 +36,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { Language, TranslationKey, translate } from './i18n';
+
+type AlgorithmKey = 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512' | 'sha3_256' | 'sha3_512' | 'blake2b' | 'blake2s' | 'blake3' | 'crc32' | 'crc64' | 'xxhash3';
 
 function App() {
   const [language, setLanguage] = useState<Language>(() => {
@@ -115,14 +117,22 @@ function App() {
   // Hash algorithm selection state with localStorage persistence
   const [selectedAlgorithms, setSelectedAlgorithms] = useState(() => {
     const saved = localStorage.getItem('hash-algorithms');
-    return saved ? JSON.parse(saved) : {
+    const defaults = {
       md5: true,
       sha1: false, 
       sha256: false,
+      sha384: false,
       sha512: false,
+      sha3_256: false,
+      sha3_512: false,
+      blake2b: false,
+      blake2s: false,
       blake3: false,
+      crc32: false,
+      crc64: false,
       xxhash3: false
     };
+    return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
 
   // Save preferences whenever they change
@@ -378,8 +388,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   const [md5, setMd5] = useState("");
   const [sha1, setSha1] = useState("");
   const [sha256, setSha256] = useState("");
+  const [sha384, setSha384] = useState("");
   const [sha512, setSha512] = useState("");
+  const [sha3_256, setSha3_256] = useState("");
+  const [sha3_512, setSha3_512] = useState("");
+  const [blake2b, setBlake2b] = useState("");
+  const [blake2s, setBlake2s] = useState("");
   const [blake3, setBlake3] = useState("");
+  const [crc32, setCrc32] = useState("");
+  const [crc64, setCrc64] = useState("");
   const [xxhash3, setXxhash3] = useState("");
   const [expectedHash, setExpectedHash] = useState("");
   const [progress, setProgress] = useState<{ percent: number; bytes_read: number; total: number } | null>(null);
@@ -392,8 +409,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     setMd5("");
     setSha1("");
     setSha256("");
+    setSha384("");
     setSha512("");
+    setSha3_256("");
+    setSha3_512("");
+    setBlake2b("");
+    setBlake2s("");
     setBlake3("");
+    setCrc32("");
+    setCrc64("");
     setXxhash3("");
   };
 
@@ -401,8 +425,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     setMd5(results.md5 || "");
     setSha1(results.sha1 || "");
     setSha256(results.sha256 || "");
+    setSha384(results.sha384 || "");
     setSha512(results.sha512 || "");
+    setSha3_256(results.sha3_256 || "");
+    setSha3_512(results.sha3_512 || "");
+    setBlake2b(results.blake2b || "");
+    setBlake2s(results.blake2s || "");
     setBlake3(results.blake3 || "");
+    setCrc32(results.crc32 || "");
+    setCrc64(results.crc64 || "");
     setXxhash3(results.xxhash3 || "");
   };
 
@@ -532,8 +563,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       md5: md5 || '',
       sha1: sha1 || '',
       sha256: sha256 || '',
+      sha384: sha384 || '',
       sha512: sha512 || '',
+      sha3_256: sha3_256 || '',
+      sha3_512: sha3_512 || '',
+      blake2b: blake2b || '',
+      blake2s: blake2s || '',
       blake3: blake3 || '',
+      crc32: crc32 || '',
+      crc64: crc64 || '',
       xxhash3: xxhash3 || '',
     };
 
@@ -565,6 +603,13 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       sha1: sha1,
       sha256: sha256,
       sha512: sha512,
+      sha384: sha384,
+      sha3_256: sha3_256,
+      sha3_512: sha3_512,
+      blake2b: blake2b,
+      blake2s: blake2s,
+      crc32: crc32,
+      crc64: crc64,
     };
     const isMatch = await invoke("verify_hash", { expectedHash, calculatedHashes });
     if (isMatch) {
@@ -575,9 +620,9 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   };
 
 
-  const [copied, setCopied] = useState({ md5: false, sha1: false, sha256: false, sha512: false, blake3: false, xxhash3: false });
+  const [copied, setCopied] = useState<Record<AlgorithmKey, boolean>>({ md5: false, sha1: false, sha256: false, sha384: false, sha512: false, sha3_256: false, sha3_512: false, blake2b: false, blake2s: false, blake3: false, crc32: false, crc64: false, xxhash3: false });
 
-  const handleCopy = async (key: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3' | 'xxhash3', value: string) => {
+  const handleCopy = async (key: AlgorithmKey, value: string) => {
   if (!value) return;
   try {
     await navigator.clipboard.writeText(value);
@@ -586,6 +631,10 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
   } catch (e) {
     console.error('Copy failed', e);
   }
+  };
+
+  const additionalHashValues: Record<AlgorithmKey, string> = {
+    md5, sha1, sha256, sha384, sha512, sha3_256, sha3_512, blake2b, blake2s, blake3, crc32, crc64, xxhash3,
   };
 
   return (
@@ -622,10 +671,25 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
           />
         </Grid>
         <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha384} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha384', checked)} size="small" />} label="SHA-384" />
+        </Grid>
+        <Grid item xs={6}>
           <FormControlLabel 
             control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
             label="SHA-512" 
           />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha3_256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha3_256', checked)} size="small" />} label="SHA3-256" />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha3_512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha3_512', checked)} size="small" />} label="SHA3-512" />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.blake2b} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake2b', checked)} size="small" />} label="BLAKE2b" />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.blake2s} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake2s', checked)} size="small" />} label="BLAKE2s" />
         </Grid>
         <Grid item xs={6}>
           <FormControlLabel 
@@ -638,6 +702,12 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
             control={<Checkbox checked={selectedAlgorithms.xxhash3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('xxhash3', checked)} size="small" />} 
             label="XXHash3" 
           />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.crc32} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('crc32', checked)} size="small" />} label="CRC32" />
+        </Grid>
+        <Grid item xs={6}>
+          <FormControlLabel control={<Checkbox checked={selectedAlgorithms.crc64} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('crc64', checked)} size="small" />} label="CRC64" />
         </Grid>
       </Grid>
 
@@ -707,6 +777,14 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
             </Grid>
           </>
         )}
+
+        {(['sha384', 'sha3_256', 'sha3_512', 'blake2b', 'blake2s', 'crc32', 'crc64'] as AlgorithmKey[]).map((key) => selectedAlgorithms[key] && (
+          <Fragment key={key}>
+            <Grid item xs={2}><Typography variant="body2" sx={{ mt: 1 }}>{key === 'sha3_256' ? 'SHA3-256' : key === 'sha3_512' ? 'SHA3-512' : key === 'blake2b' ? 'BLAKE2b' : key === 'blake2s' ? 'BLAKE2s' : key.toUpperCase()}:</Typography></Grid>
+            <Grid item xs={9}><TextField value={additionalHashValues[key]} fullWidth size="small" InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={1}><IconButton color={copied[key] ? 'success' : 'default'} onClick={() => handleCopy(key, additionalHashValues[key])} aria-label={`copy ${key}`} size="small">{copied[key] ? <CheckCircleIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}</IconButton></Grid>
+          </Fragment>
+        ))}
 
         {selectedAlgorithms.blake3 && (
           <>
@@ -912,9 +990,9 @@ interface FolderScanTabProps {
 }
 
 const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgorithms: any }) => {
-  const [copied, setCopied] = useState({ md5: false, sha1: false, sha256: false, sha512: false, blake3: false, xxhash3: false });
+  const [copied, setCopied] = useState<Record<AlgorithmKey, boolean>>({ md5: false, sha1: false, sha256: false, sha384: false, sha512: false, sha3_256: false, sha3_512: false, blake2b: false, blake2s: false, blake3: false, crc32: false, crc64: false, xxhash3: false });
 
-  const handleCopy = async (key: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3' | 'xxhash3', value: string) => {
+  const handleCopy = async (key: AlgorithmKey, value: string) => {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
@@ -925,7 +1003,7 @@ const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgor
     }
   };
 
-  const renderHashRow = (label: string, key: 'md5' | 'sha1' | 'sha256' | 'sha512' | 'blake3' | 'xxhash3') => {
+  const renderHashRow = (label: string, key: AlgorithmKey) => {
     if (!selectedAlgorithms[key]) return null;
     return (
       <Grid container spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
@@ -951,8 +1029,15 @@ const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgor
       {renderHashRow('MD5', 'md5')}
       {renderHashRow('SHA-1', 'sha1')}
       {renderHashRow('SHA-256', 'sha256')}
+      {renderHashRow('SHA-384', 'sha384')}
       {renderHashRow('SHA-512', 'sha512')}
+      {renderHashRow('SHA3-256', 'sha3_256')}
+      {renderHashRow('SHA3-512', 'sha3_512')}
+      {renderHashRow('BLAKE2b', 'blake2b')}
+      {renderHashRow('BLAKE2s', 'blake2s')}
       {renderHashRow('BLAKE3', 'blake3')}
+      {renderHashRow('CRC32', 'crc32')}
+      {renderHashRow('CRC64', 'crc64')}
       {renderHashRow('XXHash3', 'xxhash3')}
     </Paper>
   );
@@ -1090,12 +1175,17 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
                   label="SHA-256" 
                 />
               </Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha384} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha384', checked)} size="small" />} label="SHA-384" /></Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
                   control={<Checkbox checked={selectedAlgorithms.sha512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha512', checked)} size="small" />} 
                   label="SHA-512" 
                 />
               </Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha3_256} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha3_256', checked)} size="small" />} label="SHA3-256" /></Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.sha3_512} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('sha3_512', checked)} size="small" />} label="SHA3-512" /></Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.blake2b} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake2b', checked)} size="small" />} label="BLAKE2b" /></Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.blake2s} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake2s', checked)} size="small" />} label="BLAKE2s" /></Grid>
               <Grid item xs={4}>
                 <FormControlLabel 
                   control={<Checkbox checked={selectedAlgorithms.blake3} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('blake3', checked)} size="small" />} 
@@ -1108,6 +1198,8 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
                   label="XXHash3" 
                 />
               </Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.crc32} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('crc32', checked)} size="small" />} label="CRC32" /></Grid>
+              <Grid item xs={4}><FormControlLabel control={<Checkbox checked={selectedAlgorithms.crc64} onChange={(_event: unknown, checked: boolean) => handleAlgorithmChange('crc64', checked)} size="small" />} label="CRC64" /></Grid>
             </Grid>
             <FormControlLabel control={<Checkbox checked={includeSubfolders} onChange={() => setIncludeSubfolders(!includeSubfolders)} />} label={t('includeSubfolders')} />
             <FormControlLabel control={<Checkbox checked={includeHidden} onChange={() => setIncludeHidden(!includeHidden)} />} label={t('includeHiddenFiles')} />

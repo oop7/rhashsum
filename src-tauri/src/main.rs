@@ -19,8 +19,13 @@ use md5::{Md5, Digest as Md5Digest};
 use sha1::{Sha1, Digest as Sha1Digest};
 #[allow(unused_imports)]
 use sha2::{Sha256, Sha512, Digest as Sha2Digest};
+use sha2::Sha384;
+use sha3::{Sha3_256, Sha3_512};
+use blake2::{Blake2b512, Blake2s256};
 use blake3::Hasher as Blake3Hasher;
 use xxhash_rust::xxh3::Xxh3 as XxHash3;
+use crc32fast::Hasher as Crc32Hasher;
+use crc64fast::Digest as Crc64Digest;
 
 struct AppState {
     cancel: Arc<AtomicBool>,
@@ -70,7 +75,14 @@ async fn fast_calculate_checksums_mmap(window: Window, cancel: Arc<AtomicBool>, 
         let mut md5_hasher = if algs.contains(&"md5".to_string()) { Some(md5::Md5::new()) } else { None };
         let mut sha1_hasher = if algs.contains(&"sha1".to_string()) { Some(sha1::Sha1::new()) } else { None };
         let mut sha256_hasher = if algs.contains(&"sha256".to_string()) { Some(sha2::Sha256::new()) } else { None };
+        let mut sha384_hasher = if algs.contains(&"sha384".to_string()) { Some(Sha384::new()) } else { None };
         let mut sha512_hasher = if algs.contains(&"sha512".to_string()) { Some(sha2::Sha512::new()) } else { None };
+        let mut sha3_256_hasher = if algs.contains(&"sha3_256".to_string()) { Some(Sha3_256::new()) } else { None };
+        let mut sha3_512_hasher = if algs.contains(&"sha3_512".to_string()) { Some(Sha3_512::new()) } else { None };
+        let mut blake2b_hasher = if algs.contains(&"blake2b".to_string()) { Some(Blake2b512::new()) } else { None };
+        let mut blake2s_hasher = if algs.contains(&"blake2s".to_string()) { Some(Blake2s256::new()) } else { None };
+        let mut crc32_hasher = if algs.contains(&"crc32".to_string()) { Some(Crc32Hasher::new()) } else { None };
+        let mut crc64_hasher = if algs.contains(&"crc64".to_string()) { Some(Crc64Digest::new()) } else { None };
         let mut xxhash3_hasher = if algs.contains(&"xxhash3".to_string()) { Some(XxHash3::new()) } else { None };
 
         let len = mmap.len();
@@ -92,7 +104,14 @@ async fn fast_calculate_checksums_mmap(window: Window, cancel: Arc<AtomicBool>, 
             if let Some(ref mut h) = md5_hasher { h.update(slice); }
             if let Some(ref mut h) = sha1_hasher { h.update(slice); }
             if let Some(ref mut h) = sha256_hasher { h.update(slice); }
+            if let Some(ref mut h) = sha384_hasher { h.update(slice); }
             if let Some(ref mut h) = sha512_hasher { h.update(slice); }
+            if let Some(ref mut h) = sha3_256_hasher { h.update(slice); }
+            if let Some(ref mut h) = sha3_512_hasher { h.update(slice); }
+            if let Some(ref mut h) = blake2b_hasher { h.update(slice); }
+            if let Some(ref mut h) = blake2s_hasher { h.update(slice); }
+            if let Some(ref mut h) = crc32_hasher { h.update(slice); }
+            if let Some(ref mut h) = crc64_hasher { h.write(slice); }
             if let Some(ref mut h) = xxhash3_hasher { h.update(slice); }
 
             offset = end;
@@ -110,7 +129,14 @@ async fn fast_calculate_checksums_mmap(window: Window, cancel: Arc<AtomicBool>, 
         if let Some(h) = md5_hasher { results.insert("md5".to_string(), format!("{:x}", h.finalize())); }
         if let Some(h) = sha1_hasher { results.insert("sha1".to_string(), format!("{:x}", h.finalize())); }
         if let Some(h) = sha256_hasher { results.insert("sha256".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = sha384_hasher { results.insert("sha384".to_string(), format!("{:x}", h.finalize())); }
         if let Some(h) = sha512_hasher { results.insert("sha512".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = sha3_256_hasher { results.insert("sha3_256".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = sha3_512_hasher { results.insert("sha3_512".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = blake2b_hasher { results.insert("blake2b".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = blake2s_hasher { results.insert("blake2s".to_string(), format!("{:x}", h.finalize())); }
+        if let Some(h) = crc32_hasher { results.insert("crc32".to_string(), format!("{:08x}", h.finalize())); }
+        if let Some(h) = crc64_hasher { results.insert("crc64".to_string(), format!("{:016x}", h.sum64())); }
         if let Some(h) = xxhash3_hasher { results.insert("xxhash3".to_string(), format!("{:x}", h.digest())); }
         if let Some(blake3) = blake3_hash { results.insert("blake3".to_string(), blake3); }
 
@@ -158,7 +184,14 @@ async fn do_calculate_checksums(window: Window, cancel: Arc<AtomicBool>, file_pa
     let mut has_md5 = false;
     let mut has_sha1 = false;
     let mut has_sha256 = false;
+    let mut has_sha384 = false;
     let mut has_sha512 = false;
+    let mut has_sha3_256 = false;
+    let mut has_sha3_512 = false;
+    let mut has_blake2b = false;
+    let mut has_blake2s = false;
+    let mut has_crc32 = false;
+    let mut has_crc64 = false;
     let mut has_blake3 = false;
     let mut has_xxhash3 = false;
 
@@ -167,7 +200,14 @@ async fn do_calculate_checksums(window: Window, cancel: Arc<AtomicBool>, file_pa
             "md5" => has_md5 = true,
             "sha1" => has_sha1 = true,
             "sha256" => has_sha256 = true,
+            "sha384" => has_sha384 = true,
             "sha512" => has_sha512 = true,
+            "sha3_256" => has_sha3_256 = true,
+            "sha3_512" => has_sha3_512 = true,
+            "blake2b" => has_blake2b = true,
+            "blake2s" => has_blake2s = true,
+            "crc32" => has_crc32 = true,
+            "crc64" => has_crc64 = true,
             "blake3" => has_blake3 = true,
             "xxhash3" => has_xxhash3 = true,
             _ => {}
@@ -177,7 +217,14 @@ async fn do_calculate_checksums(window: Window, cancel: Arc<AtomicBool>, file_pa
     let mut md5_hasher = if has_md5 { Some(Md5::new()) } else { None };
     let mut sha1_hasher = if has_sha1 { Some(Sha1::new()) } else { None };
     let mut sha256_hasher = if has_sha256 { Some(Sha256::new()) } else { None };
+    let mut sha384_hasher = if has_sha384 { Some(Sha384::new()) } else { None };
     let mut sha512_hasher = if has_sha512 { Some(Sha512::new()) } else { None };
+    let mut sha3_256_hasher = if has_sha3_256 { Some(Sha3_256::new()) } else { None };
+    let mut sha3_512_hasher = if has_sha3_512 { Some(Sha3_512::new()) } else { None };
+    let mut blake2b_hasher = if has_blake2b { Some(Blake2b512::new()) } else { None };
+    let mut blake2s_hasher = if has_blake2s { Some(Blake2s256::new()) } else { None };
+    let mut crc32_hasher = if has_crc32 { Some(Crc32Hasher::new()) } else { None };
+    let mut crc64_hasher = if has_crc64 { Some(Crc64Digest::new()) } else { None };
     let mut blake3_hasher = if has_blake3 { Some(Blake3Hasher::new()) } else { None };
     let mut xxhash3_hasher = if has_xxhash3 { Some(XxHash3::new()) } else { None };
 
@@ -217,7 +264,14 @@ async fn do_calculate_checksums(window: Window, cancel: Arc<AtomicBool>, file_pa
         if let Some(ref mut h) = md5_hasher { h.update(chunk); }
         if let Some(ref mut h) = sha1_hasher { h.update(chunk); }
         if let Some(ref mut h) = sha256_hasher { h.update(chunk); }
+        if let Some(ref mut h) = sha384_hasher { h.update(chunk); }
         if let Some(ref mut h) = sha512_hasher { h.update(chunk); }
+        if let Some(ref mut h) = sha3_256_hasher { h.update(chunk); }
+        if let Some(ref mut h) = sha3_512_hasher { h.update(chunk); }
+        if let Some(ref mut h) = blake2b_hasher { h.update(chunk); }
+        if let Some(ref mut h) = blake2s_hasher { h.update(chunk); }
+        if let Some(ref mut h) = crc32_hasher { h.update(chunk); }
+        if let Some(ref mut h) = crc64_hasher { h.write(chunk); }
         if let Some(ref mut h) = blake3_hasher { h.update(chunk); }
         if let Some(ref mut h) = xxhash3_hasher { h.update(chunk); }
 
@@ -246,10 +300,31 @@ async fn do_calculate_checksums(window: Window, cancel: Arc<AtomicBool>, file_pa
             results.insert("sha256".to_string(), format!("{:x}", h.finalize()));
         }
     }
+    if has_sha384 {
+        if let Some(h) = sha384_hasher { results.insert("sha384".to_string(), format!("{:x}", h.finalize())); }
+    }
     if has_sha512 {
         if let Some(h) = sha512_hasher {
             results.insert("sha512".to_string(), format!("{:x}", h.finalize()));
         }
+    }
+    if has_sha3_256 {
+        if let Some(h) = sha3_256_hasher { results.insert("sha3_256".to_string(), format!("{:x}", h.finalize())); }
+    }
+    if has_sha3_512 {
+        if let Some(h) = sha3_512_hasher { results.insert("sha3_512".to_string(), format!("{:x}", h.finalize())); }
+    }
+    if has_blake2b {
+        if let Some(h) = blake2b_hasher { results.insert("blake2b".to_string(), format!("{:x}", h.finalize())); }
+    }
+    if has_blake2s {
+        if let Some(h) = blake2s_hasher { results.insert("blake2s".to_string(), format!("{:x}", h.finalize())); }
+    }
+    if has_crc32 {
+        if let Some(h) = crc32_hasher { results.insert("crc32".to_string(), format!("{:08x}", h.finalize())); }
+    }
+    if has_crc64 {
+        if let Some(h) = crc64_hasher { results.insert("crc64".to_string(), format!("{:016x}", h.sum64())); }
     }
     if has_blake3 {
         if let Some(h) = blake3_hasher {
@@ -309,9 +384,23 @@ struct FileData {
     #[serde(default)]
     sha256: String,
     #[serde(default)]
+    sha384: String,
+    #[serde(default)]
     sha512: String,
     #[serde(default)]
+    sha3_256: String,
+    #[serde(default)]
+    sha3_512: String,
+    #[serde(default)]
+    blake2b: String,
+    #[serde(default)]
+    blake2s: String,
+    #[serde(default)]
     blake3: String,
+    #[serde(default)]
+    crc32: String,
+    #[serde(default)]
+    crc64: String,
     #[serde(default)]
     xxhash3: String,
 }
@@ -393,8 +482,15 @@ async fn scan_folder(window: Window, state: tauri::State<'_, AppState>, folder_p
                         md5: checksums.get("md5").unwrap_or(&"".to_string()).to_string(),
                         sha1: checksums.get("sha1").unwrap_or(&"".to_string()).to_string(),
                         sha256: checksums.get("sha256").unwrap_or(&"".to_string()).to_string(),
+                        sha384: checksums.get("sha384").unwrap_or(&"".to_string()).to_string(),
                         sha512: checksums.get("sha512").unwrap_or(&"".to_string()).to_string(),
+                        sha3_256: checksums.get("sha3_256").unwrap_or(&"".to_string()).to_string(),
+                        sha3_512: checksums.get("sha3_512").unwrap_or(&"".to_string()).to_string(),
+                        blake2b: checksums.get("blake2b").unwrap_or(&"".to_string()).to_string(),
+                        blake2s: checksums.get("blake2s").unwrap_or(&"".to_string()).to_string(),
                         blake3: checksums.get("blake3").unwrap_or(&"".to_string()).to_string(),
+                        crc32: checksums.get("crc32").unwrap_or(&"".to_string()).to_string(),
+                        crc64: checksums.get("crc64").unwrap_or(&"".to_string()).to_string(),
                         xxhash3: checksums.get("xxhash3").unwrap_or(&"".to_string()).to_string(),
                     });
                 }
