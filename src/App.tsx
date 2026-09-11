@@ -99,6 +99,7 @@ function App() {
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("");
+  const [alertSeverity, setAlertSeverity] = useState<'info' | 'success' | 'error'>('info');
 
   // Hash algorithm selection state with localStorage persistence
   const [selectedAlgorithms, setSelectedAlgorithms] = useState(() => {
@@ -126,9 +127,10 @@ function App() {
   };
 
   // Helper function to show themed alerts
-  const showAlert = (title: string, message: string) => {
+  const showAlert = (title: string, message: string, severity: 'info' | 'success' | 'error' = 'info') => {
     setAlertTitle(title);
     setAlertMessage(message);
+    setAlertSeverity(severity);
     setAlertDialogOpen(true);
   };
 
@@ -281,7 +283,16 @@ function App() {
       </Dialog>
 
       {/* Alert Dialog */}
-      <Dialog open={alertDialogOpen} onClose={() => setAlertDialogOpen(false)}>
+      <Dialog
+        open={alertDialogOpen}
+        onClose={() => setAlertDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            backgroundColor: alertSeverity === 'success' ? 'success.main' : alertSeverity === 'error' ? 'error.main' : 'background.paper',
+            color: alertSeverity === 'info' ? 'text.primary' : 'common.white',
+          },
+        }}
+      >
         <DialogTitle>{alertTitle}</DialogTitle>
         <DialogContent>
           <Typography>{alertMessage}</Typography>
@@ -325,7 +336,7 @@ interface SingleFileTabProps {
     setFilePath: (path: string) => void;
     selectedAlgorithms: { [key: string]: boolean };
     handleAlgorithmChange: (algorithm: string, checked: boolean) => void;
-    showAlert: (title: string, message: string) => void;
+    showAlert: (title: string, message: string, severity?: 'info' | 'success' | 'error') => void;
     excludeEmptyFields: boolean;
     setExcludeEmptyFields: (value: boolean) => void;
 }
@@ -534,9 +545,9 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     };
     const isMatch = await invoke("verify_hash", { expectedHash, calculatedHashes });
     if (isMatch) {
-      showAlert("Verification", "The hash matches!");
+      showAlert("Verification", "The hash matches!", 'success');
     } else {
-      showAlert("Verification", "The hash does not match.");
+      showAlert("Verification", "The hash does not match.", 'error');
     }
   };
 
