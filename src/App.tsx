@@ -212,7 +212,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Container sx={{ py: 0, minHeight: '100vh' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', color: 'text.primary', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Tabs value={activeTab} onChange={handleTabChange} aria-label="basic tabs example">
             <Tab label="Single File" />
