@@ -21,6 +21,7 @@ import {
   Grid, 
   Menu, 
   MenuItem, 
+  Select,
   Typography, 
   IconButton,
   LinearProgress,
@@ -34,8 +35,18 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { Language, TranslationKey, translate } from './i18n';
 
 function App() {
+  const [language, setLanguage] = useState<Language>(() => {
+    return localStorage.getItem('language') === 'es' ? 'es' : 'en';
+  });
+  const t = (key: TranslationKey, values?: Record<string, string>) => translate(language, key, values);
+
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
+
   // Theme state with localStorage persistence
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme-mode');
@@ -216,22 +227,33 @@ function App() {
       <Container sx={{ py: 0, minHeight: '100vh' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider', color: 'text.primary', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexDirection: 'column' }}>
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Tabs value={activeTab} onChange={handleTabChange} aria-label="basic tabs example">
-            <Tab label="Single File" />
-            <Tab label="Folder Scan" />
-            <Tab label="GPG Verify" />
+          <Tabs value={activeTab} onChange={handleTabChange} aria-label={t('language')}>
+            <Tab label={t('singleFile')} />
+            <Tab label={t('folderScan')} />
+            <Tab label={t('gpgVerify')} />
           </Tabs>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton onClick={() => setIsDarkMode(!isDarkMode)} color="inherit">
               {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
+            <Select
+              value={language}
+              onChange={(event) => setLanguage(event.target.value as Language)}
+              size="small"
+              variant="standard"
+              aria-label={t('language')}
+              sx={{ minWidth: 58 }}
+            >
+              <MenuItem value="en">EN</MenuItem>
+              <MenuItem value="es">ES</MenuItem>
+            </Select>
             <Button
               aria-controls="help-menu"
               aria-haspopup="true"
               onClick={handleMenuClick}
               variant="contained"
             >
-              Help
+              {t('help')}
             </Button>
           </Box>
           </Box>
@@ -243,19 +265,19 @@ function App() {
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
           >
-            <MenuItem onClick={handleCheckForUpdates}>Check for Updates</MenuItem>
-            <MenuItem onClick={handleSponsor}>Sponsor</MenuItem>
-            <MenuItem onClick={handleAbout}>About</MenuItem>
+            <MenuItem onClick={handleCheckForUpdates}>{t('checkForUpdates')}</MenuItem>
+            <MenuItem onClick={handleSponsor}>{t('sponsor')}</MenuItem>
+            <MenuItem onClick={handleAbout}>{t('about')}</MenuItem>
           </Menu>
         </Box>
         <TabPanel value={activeTab} index={0}>
-          <SingleFileTab filePath={filePath} setFilePath={setFilePath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} />
+          <SingleFileTab filePath={filePath} setFilePath={setFilePath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} t={t} />
         </TabPanel>
         <TabPanel value={activeTab} index={1}>
-          <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} />
+          <FolderScanTab folderPath={folderPath} setFolderPath={setFolderPath} selectedAlgorithms={selectedAlgorithms} handleAlgorithmChange={handleAlgorithmChange} showAlert={showAlert} excludeEmptyFields={excludeEmptyFields} setExcludeEmptyFields={setExcludeEmptyFields} t={t} />
         </TabPanel>
         <TabPanel value={activeTab} index={2}>
-          <GpgVerifyTab showAlert={showAlert} />
+          <GpgVerifyTab showAlert={showAlert} t={t} />
         </TabPanel>
       </Container>
 
@@ -339,6 +361,7 @@ interface SingleFileTabProps {
     showAlert: (title: string, message: string, severity?: 'info' | 'success' | 'error') => void;
     excludeEmptyFields: boolean;
     setExcludeEmptyFields: (value: boolean) => void;
+    t: (key: TranslationKey, values?: Record<string, string>) => string;
 }
 
 interface GpgVerificationResult {
@@ -351,7 +374,7 @@ interface GpgVerificationResult {
   message: string;
 }
 
-const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields }: SingleFileTabProps) => {
+const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields, t }: SingleFileTabProps) => {
   const [md5, setMd5] = useState("");
   const [sha1, setSha1] = useState("");
   const [sha256, setSha256] = useState("");
@@ -424,7 +447,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
           try {
             const isFile = await invokeTauri<boolean>('is_path_file', { path: filePath });
             if (!isFile) {
-              showAlert('Invalid selection', 'You dropped a folder into Single File mode. Please drop a single file or switch to Folder Scan.');
+              showAlert(t('invalidSelection'), t('folderDropped'));
               setIsHashing(false);
               setProgress(null);
               return;
@@ -432,7 +455,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
             validatedFileRef.current = filePath;
           } catch (e) {
             console.error('Failed to validate path via backend', e);
-            showAlert('Error', 'Unable to access the selected path. Make sure the file exists and you have permission to read it.');
+            showAlert(t('error'), t('pathAccessError'));
             setIsHashing(false);
             setProgress(null);
             return;
@@ -448,7 +471,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       } catch (error) {
         console.error('Hash calculation failed:', error);
         if (error !== "Cancelled") {
-          showAlert('Error', 'Hash calculation failed: ' + error);
+          showAlert(t('error'), t('hashCalculationFailed', { error: String(error) }));
         }
       } finally {
         setIsHashing(false);
@@ -484,12 +507,12 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
 
   const handleSaveReport = async () => {
     if (!filePath) {
-      showAlert('Save Report', 'Select a file before saving the report.');
+      showAlert(t('saveReport'), t('selectFileBeforeSave'));
       return;
     }
 
     const targetPath = await save({
-      title: 'Save File Hash Report',
+      title: t('saveFileHashReport'),
       defaultPath: 'hash-report.csv',
       filters: [
         { name: 'CSV', extensions: ['csv'] },
@@ -525,16 +548,16 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
         JSON.stringify(reportData[0], null, 2) : // keep original format for JSON (single object)
         JSON.stringify(reportData);              // use array for CSV deserialization
       await invoke('save_report', { filePath: targetPath, data: dataToSave, format: format });
-      showAlert('Save Report', `Report saved to ${targetPath}`);
+      showAlert(t('saveReport'), t('reportSaved', { path: targetPath }));
     } catch (error) {
       console.error('Failed to save report', error);
-      showAlert('Error', `Failed to save report: ${error}`);
+      showAlert(t('error'), t('reportSaveFailed', { error: String(error) }));
     }
   };
 
   const handleVerifyHash = async () => {
     if (!filePath || !expectedHash.trim()) {
-      showAlert("Verification", "Please select a file and enter an expected hash.");
+      showAlert(t('verification'), t('selectFileAndHash'));
       return;
     }
     const calculatedHashes = {
@@ -545,9 +568,9 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
     };
     const isMatch = await invoke("verify_hash", { expectedHash, calculatedHashes });
     if (isMatch) {
-      showAlert("Verification", "The hash matches!", 'success');
+      showAlert(t('verification'), t('hashMatches'), 'success');
     } else {
-      showAlert("Verification", "The hash does not match.", 'error');
+      showAlert(t('verification'), t('hashDoesNotMatch'), 'error');
     }
   };
 
@@ -570,15 +593,15 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       {/* File Selection Row */}
       <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={10}>
-          <TextField label="File" value={filePath} fullWidth size="small" InputProps={{ readOnly: true }} />
+          <TextField label={t('file')} value={filePath} fullWidth size="small" InputProps={{ readOnly: true }} />
         </Grid>
         <Grid item xs={2}>
-          <Button variant="contained" onClick={() => handleFileSelect()} fullWidth size="small" disabled={isHashing}>Browse</Button>
+          <Button variant="contained" onClick={() => handleFileSelect()} fullWidth size="small" disabled={isHashing}>{t('browse')}</Button>
         </Grid>
       </Grid>
 
       {/* Algorithm Selection */}
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>Hash Algorithms:</Typography>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('hashAlgorithms')}</Typography>
       <Grid container spacing={1} sx={{ mb: 2 }}>
         <Grid item xs={6}>
           <FormControlLabel 
@@ -619,7 +642,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
       </Grid>
 
       {/* Hash Results - Only show selected algorithms */}
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>Hash Results:</Typography>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('hashResults')}</Typography>
       <Grid container spacing={1}>
         {selectedAlgorithms.md5 && (
           <>
@@ -730,7 +753,7 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
                 </Box>
               </Box>
               <Box>
-                <Button variant="outlined" color="error" size="small" onClick={async () => { await invoke('cancel_hashing'); setIsHashing(false); setProgress(null); }}>Cancel</Button>
+                <Button variant="outlined" color="error" size="small" onClick={async () => { await invoke('cancel_hashing'); setIsHashing(false); setProgress(null); }}>{t('cancel')}</Button>
               </Box>
             </Box>
           </Grid>
@@ -739,32 +762,33 @@ const SingleFileTab = ({ filePath, setFilePath, selectedAlgorithms, handleAlgori
 
       {/* Verify Section */}
       <Box sx={{ mt: 2 }}>
-        <Typography variant="subtitle2">Verify Hash:</Typography>
+        <Typography variant="subtitle2">{t('verifyHash')}</Typography>
         <TextField
-          placeholder="Paste hash to verify"
+          placeholder={t('pasteHash')}
           value={expectedHash}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedHash(event.target.value)}
           fullWidth
           size="small"
           sx={{ mt: 1 }}
         />
-        <Button variant="contained" onClick={handleVerifyHash} fullWidth sx={{ mt: 1 }} size="small" disabled={isHashing}>Verify</Button>
+        <Button variant="contained" onClick={handleVerifyHash} fullWidth sx={{ mt: 1 }} size="small" disabled={isHashing}>{t('verify')}</Button>
       </Box>
 
       <FormControlLabel
         control={<Checkbox size="small" checked={excludeEmptyFields} onChange={(e) => setExcludeEmptyFields(e.target.checked)} />}
-        label={<Typography variant="body2">Exclude empty fields from report</Typography>}
+        label={<Typography variant="body2">{t('excludeEmptyFields')}</Typography>}
       />
-      <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 1 }} size="small">Save Report</Button>
+      <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 1 }} size="small">{t('saveReport')}</Button>
     </Box>
   );
 };
 
 interface GpgVerifyTabProps {
   showAlert: (title: string, message: string) => void;
+  t: (key: TranslationKey, values?: Record<string, string>) => string;
 }
 
-const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
+const GpgVerifyTab = ({ showAlert, t }: GpgVerifyTabProps) => {
   const [filePath, setFilePath] = useState("");
   const [signaturePath, setSignaturePath] = useState("");
   const [expectedFingerprint, setExpectedFingerprint] = useState("");
@@ -787,11 +811,11 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
 
   const handleVerifyGpg = async () => {
     if (!filePath) {
-      showAlert('GPG Verification', 'Select a file before verifying its signature.');
+      showAlert(t('gpgVerification'), t('selectFileBeforeSignature'));
       return;
     }
     if (!signaturePath) {
-      showAlert('GPG Verification', 'Select a detached signature file (for example .sig or .asc).');
+      showAlert(t('gpgVerification'), t('selectSignatureFile'));
       return;
     }
 
@@ -807,7 +831,7 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
       setGpgResult(result);
     } catch (error) {
       console.error('GPG verification failed:', error);
-      showAlert('GPG Verification', `GPG verification failed: ${error}`);
+      showAlert(t('gpgVerification'), t('gpgVerificationFailed', { error: String(error) }));
     } finally {
       setIsVerifyingGpg(false);
     }
@@ -817,18 +841,18 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
     <Box sx={{ p: 1 }}>
       <Grid container spacing={1} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={10}>
-          <TextField label="File" value={filePath} fullWidth size="small" InputProps={{ readOnly: true }} />
+          <TextField label={t('file')} value={filePath} fullWidth size="small" InputProps={{ readOnly: true }} />
         </Grid>
         <Grid item xs={2}>
-          <Button variant="contained" onClick={handleFileSelect} fullWidth size="small" disabled={isVerifyingGpg}>Browse</Button>
+          <Button variant="contained" onClick={handleFileSelect} fullWidth size="small" disabled={isVerifyingGpg}>{t('browse')}</Button>
         </Grid>
       </Grid>
 
-      <Typography variant="subtitle2">Detached Signature File:</Typography>
+      <Typography variant="subtitle2">{t('detachedSignatureFile')}</Typography>
       <Grid container spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
         <Grid item xs={10}>
           <TextField
-            placeholder="Detached signature file (.sig, .asc)"
+            placeholder={t('detachedSignaturePlaceholder')}
             value={signaturePath}
             fullWidth
             size="small"
@@ -836,12 +860,12 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
           />
         </Grid>
         <Grid item xs={2}>
-          <Button variant="contained" onClick={handleSignatureSelect} fullWidth size="small" disabled={isVerifyingGpg}>Browse</Button>
+          <Button variant="contained" onClick={handleSignatureSelect} fullWidth size="small" disabled={isVerifyingGpg}>{t('browse')}</Button>
         </Grid>
       </Grid>
 
       <TextField
-        label="Expected signing key fingerprint (optional)"
+        label={t('expectedFingerprint')}
         value={expectedFingerprint}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => setExpectedFingerprint(event.target.value)}
         fullWidth
@@ -857,7 +881,7 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
         size="small"
         disabled={isVerifyingGpg}
       >
-        {isVerifyingGpg ? 'Verifying Signature...' : 'Verify GPG Signature'}
+        {isVerifyingGpg ? t('verifyingSignature') : t('verifyGpgSignature')}
       </Button>
 
       {gpgResult && (
@@ -865,11 +889,11 @@ const GpgVerifyTab = ({ showAlert }: GpgVerifyTabProps) => {
           <Typography variant="body2" color={gpgResult.valid_signature && gpgResult.fingerprint_match ? 'success.main' : 'error.main'}>
             {gpgResult.message}
           </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>Signature valid: {gpgResult.valid_signature ? 'Yes' : 'No'}</Typography>
-          <Typography variant="body2">Fingerprint match: {gpgResult.fingerprint_match ? 'Yes' : 'No'}</Typography>
-          {gpgResult.signer && <Typography variant="body2">Signer: {gpgResult.signer}</Typography>}
-          {gpgResult.fingerprint && <Typography variant="body2">Fingerprint: {gpgResult.fingerprint}</Typography>}
-          {gpgResult.trust_level && <Typography variant="body2">Trust level: {gpgResult.trust_level}</Typography>}
+          <Typography variant="body2" sx={{ mt: 0.5 }}>{t('signatureValid')} {gpgResult.valid_signature ? 'Yes' : 'No'}</Typography>
+          <Typography variant="body2">{t('fingerprintMatch')} {gpgResult.fingerprint_match ? 'Yes' : 'No'}</Typography>
+          {gpgResult.signer && <Typography variant="body2">{t('signer')} {gpgResult.signer}</Typography>}
+          {gpgResult.fingerprint && <Typography variant="body2">{t('fingerprint')} {gpgResult.fingerprint}</Typography>}
+          {gpgResult.trust_level && <Typography variant="body2">{t('trustLevel')} {gpgResult.trust_level}</Typography>}
         </Box>
       )}
     </Box>
@@ -884,6 +908,7 @@ interface FolderScanTabProps {
     showAlert: (title: string, message: string) => void;
     excludeEmptyFields: boolean;
     setExcludeEmptyFields: (value: boolean) => void;
+    t: (key: TranslationKey, values?: Record<string, string>) => string;
 }
 
 const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgorithms: any }) => {
@@ -933,7 +958,7 @@ const FileResultItem = ({ file, selectedAlgorithms }: { file: any, selectedAlgor
   );
 };
 
-const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields }: FolderScanTabProps) => {
+const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAlgorithmChange, showAlert, excludeEmptyFields, setExcludeEmptyFields, t }: FolderScanTabProps) => {
   const [files, setFiles] = useState<any[]>([]);
   const [includeSubfolders, setIncludeSubfolders] = useState(true);
   const [includeHidden, setIncludeHidden] = useState(false);
@@ -974,7 +999,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
     const algorithms = Object.keys(selectedAlgorithms).filter(key => selectedAlgorithms[key]);
     
     if (algorithms.length === 0) {
-      showAlert('Error', 'Please select at least one hash algorithm');
+      showAlert(t('error'), t('selectAlgorithm'));
       return;
     }
     
@@ -990,7 +1015,7 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
       });
       setFiles(scannedFiles as any[]);
     } catch (e) {
-      if (e !== "Cancelled") showAlert('Error', `Folder scan failed: ${e}`);
+      if (e !== "Cancelled") showAlert(t('error'), t('folderScanFailed', { error: String(e) }));
     } finally {
       setIsScanning(false);
       setProgress(null);
@@ -999,12 +1024,12 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 
   const handleSaveReport = async () => {
     if (!files.length) {
-      showAlert('Save Folder Results', 'Scan a folder before saving results.');
+      showAlert(t('saveFolderResults'), t('scanBeforeSave'));
       return;
     }
 
     const targetPath = await save({
-      title: 'Save Folder Hash Results',
+      title: t('saveFolderResults'),
       defaultPath: 'folder-hash-results.csv',
       filters: [
         { name: 'CSV', extensions: ['csv'] },
@@ -1026,10 +1051,10 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 
       const jsonData = JSON.stringify(reportData, null, 2);
       await invoke('save_report', { filePath: targetPath, data: jsonData, format });
-      showAlert('Save Folder Results', `Results saved to ${targetPath}`);
+      showAlert(t('saveFolderResults'), t('folderResultsSaved', { path: targetPath }));
     } catch (error) {
       console.error('Failed to save folder results', error);
-      showAlert('Error', `Failed to save folder results: ${error}`);
+      showAlert(t('error'), t('folderResultsSaveFailed', { error: String(error) }));
     }
   };
 
@@ -1037,15 +1062,15 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
     <Box sx={{ p: 2 }}> 
         <Grid container spacing={2} alignItems="center">
             <Grid item xs={10}>
-                <TextField label="Folder" value={folderPath} fullWidth InputProps={{ readOnly: true }} />
+                <TextField label={t('folder')} value={folderPath} fullWidth InputProps={{ readOnly: true }} />
             </Grid>
             <Grid item xs={2}>
-                <Button variant="contained" onClick={handleFolderSelect} fullWidth>Browse</Button>
+                <Button variant="contained" onClick={handleFolderSelect} fullWidth>{t('browse')}</Button>
             </Grid>
         </Grid>
 
         <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1 }}>Algorithm Selection:</Typography>
+            <Typography variant="h6" sx={{ mb: 1 }}>{t('algorithmSelection')}</Typography>
             <Grid container spacing={1}>
               <Grid item xs={4}>
                 <FormControlLabel 
@@ -1084,21 +1109,21 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
                 />
               </Grid>
             </Grid>
-            <FormControlLabel control={<Checkbox checked={includeSubfolders} onChange={() => setIncludeSubfolders(!includeSubfolders)} />} label="Include Subfolders" />
-            <FormControlLabel control={<Checkbox checked={includeHidden} onChange={() => setIncludeHidden(!includeHidden)} />} label="Include Hidden Files" />
+            <FormControlLabel control={<Checkbox checked={includeSubfolders} onChange={() => setIncludeSubfolders(!includeSubfolders)} />} label={t('includeSubfolders')} />
+            <FormControlLabel control={<Checkbox checked={includeHidden} onChange={() => setIncludeHidden(!includeHidden)} />} label={t('includeHiddenFiles')} />
         </Box>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-          <Button variant="contained" onClick={handleScan} fullWidth disabled={isScanning}>Scan Folder</Button>
+          <Button variant="contained" onClick={handleScan} fullWidth disabled={isScanning}>{t('scanFolder')}</Button>
           {isScanning && (
-            <Button variant="outlined" color="error" onClick={() => invoke('cancel_hashing')}>Cancel</Button>
+            <Button variant="outlined" color="error" onClick={() => invoke('cancel_hashing')}>{t('cancel')}</Button>
           )}
         </Box>
         {isScanning && progress && (
           <Box sx={{ mt: 2 }}>
             <LinearProgress variant={progress.total > 0 ? "determinate" : "indeterminate"} value={progress.total > 0 ? (progress.completed / progress.total) * 100 : 0} />
             <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-              {progress.total > 0 ? `${progress.completed} / ${progress.total} files completed (${Math.round((progress.completed / progress.total) * 100)}%)` : 'Scanning...'}
+              {progress.total > 0 ? t('filesCompleted', { completed: String(progress.completed), total: String(progress.total), percent: String(Math.round((progress.completed / progress.total) * 100)) }) : t('scanning')}
             </Typography>
           </Box>
         )}
@@ -1111,9 +1136,9 @@ const FolderScanTab = ({ folderPath, setFolderPath, selectedAlgorithms, handleAl
 
         <FormControlLabel
           control={<Checkbox size="small" checked={excludeEmptyFields} onChange={(e) => setExcludeEmptyFields(e.target.checked)} />}
-          label={<Typography variant="body2">Exclude empty fields from report</Typography>}
+          label={<Typography variant="body2">{t('excludeEmptyFields')}</Typography>}
         />
-        <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 2 }}>Save Folder Results</Button>
+        <Button variant="contained" onClick={handleSaveReport} fullWidth sx={{ mt: 2 }}>{t('saveFolderResults')}</Button>
     </Box>
   );
 };
