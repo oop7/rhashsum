@@ -2797,7 +2797,7 @@ dependencies = [
 
 [[package]]
 name = "rust-hash-sum"
-version = "4.5.0"
+version = "4.7.0"
 dependencies = [
  "ahash",
  "blake3",
